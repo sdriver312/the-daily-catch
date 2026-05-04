@@ -125,18 +125,17 @@ def fetch_intraday(ticker):
 def camarilla_pivots(h, l, c):
     r = h - l
     k = 1.1
-    h4  = round(c + r * k / 2, 2)
-    h3  = round(c + r * k / 4, 2)
-    l3  = round(c - r * k / 4, 2)
-    l4  = round(c - r * k / 2, 2)
-    ext = round((h4 - h3) * 1.168, 2)
+    h4 = round(c + r * k / 2, 2)
+    h3 = round(c + r * k / 4, 2)
+    l3 = round(c - r * k / 4, 2)
+    l4 = round(c - r * k / 2, 2)
     return {
-        "R5": round(h4 + ext, 2),
+        "R5": round(c + r, 2),   # TradingView: Close + (High − Low)
         "R4": h4,
         "R3": h3,
         "S3": l3,
         "S4": l4,
-        "S5": round(l4 - ext, 2),
+        "S5": round(c - r, 2),   # TradingView: Close − (High − Low)
     }
 
 def get_globex_levels(intraday, trade_date):
@@ -523,6 +522,6 @@ with c4:
 
 st.caption(
     "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
-    "Camarilla R5/S5 = Fibonacci extension of R3→R4 range.  "
+    "Camarilla R5/S5 = Close ± (High − Low).  "
     "Bias is informational — not financial advice."
 )
