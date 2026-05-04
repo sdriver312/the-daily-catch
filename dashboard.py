@@ -98,6 +98,12 @@ def prev_trading_day(d):
         d -= timedelta(days=1)
     return d
 
+def next_trading_day(d):
+    d += timedelta(days=1)
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
+
 # ── Data Fetching ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_daily(ticker):
@@ -301,8 +307,14 @@ if len(daily) < 3:
     st.error("Not enough data returned. Markets may be closed or the ticker is unavailable.")
     st.stop()
 
-daily_dates   = [d.date() if hasattr(d, "date") else d for d in daily.index]
-complete_rows = [i for i, d in enumerate(daily_dates) if d < trade_date]
+daily_dates = [d.date() if hasattr(d, "date") else d for d in daily.index]
+
+# After 4 PM ET the RTH session is complete — flip to next-session mode
+rth_closed    = now_et.time() >= dtime(16, 0)
+complete_rows = [
+    i for i, d in enumerate(daily_dates)
+    if d < trade_date or (rth_closed and d == trade_date)
+]
 if not complete_rows:
     st.error("Cannot find a completed prior trading day in fetched data.")
     st.stop()
@@ -322,8 +334,13 @@ pw_low  = round(float(week_slice["Low"].min()),  2)
 curr_price = round(float(daily.iloc[-1]["Close"]), 2)
 
 camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
-globex_h, globex_l = get_globex_levels(intraday, trade_date)
-prev_rth  = get_rth_levels(intraday, prev_trading_day(trade_date))
+
+# After 4 PM the overnight session for tomorrow has begun
+globex_target = next_trading_day(trade_date) if rth_closed else trade_date
+globex_h, globex_l = get_globex_levels(intraday, globex_target)
+
+# After 4 PM show today's completed RTH as the reference session
+prev_rth = get_rth_levels(intraday, trade_date if rth_closed else prev_trading_day(trade_date))
 
 today_bars = intraday[intraday.index.date == trade_date]
 rth_bars   = today_bars[
@@ -418,7 +435,7 @@ st.markdown(
       <div style="color:#aaa; margin-top:4px;">
         Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
         Reference price: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
-        Session date: <b>{trade_date}</b>
+        {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
       </div>
     </div>
     """,
