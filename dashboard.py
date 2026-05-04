@@ -320,18 +320,30 @@ if not complete_rows:
     st.stop()
 
 prev_idx = complete_rows[-1]
-prev     = daily.iloc[prev_idx]
-pd_date  = daily_dates[prev_idx]
-pd_open  = round(float(prev["Open"]),  2)
-pd_high  = round(float(prev["High"]),  2)
-pd_low   = round(float(prev["Low"]),   2)
-pd_close = round(float(prev["Close"]), 2)
 
+# Weekly H/L still uses the daily bar (broadest available window)
 week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
 pw_high = round(float(week_slice["High"].max()), 2)
 pw_low  = round(float(week_slice["Low"].min()),  2)
 
 curr_price = round(float(daily.iloc[-1]["Close"]), 2)
+
+# PDH/PDL/PDO/PDC derived from intraday RTH bars — accurate to the session,
+# avoids yfinance daily bar issues (incomplete bars, full Globex session vs RTH)
+ref_date = trade_date if rth_closed else prev_trading_day(trade_date)
+ref_rth  = get_rth_levels(intraday, ref_date)
+
+if all(v is not None for v in ref_rth):
+    pd_high, pd_low, pd_open, pd_close = ref_rth
+    pd_date = ref_date
+else:
+    # Fallback to daily bar if intraday doesn't cover that date
+    prev    = daily.iloc[prev_idx]
+    pd_date = daily_dates[prev_idx]
+    pd_open  = round(float(prev["Open"]),  2)
+    pd_high  = round(float(prev["High"]),  2)
+    pd_low   = round(float(prev["Low"]),   2)
+    pd_close = round(float(prev["Close"]), 2)
 
 camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
 
@@ -339,8 +351,8 @@ camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
 globex_target = next_trading_day(trade_date) if rth_closed else trade_date
 globex_h, globex_l = get_globex_levels(intraday, globex_target)
 
-# After 4 PM show today's completed RTH as the reference session
-prev_rth = get_rth_levels(intraday, trade_date if rth_closed else prev_trading_day(trade_date))
+# prev_rth for the sidebar — same reference session as the levels
+prev_rth = ref_rth
 
 today_bars = intraday[intraday.index.date == trade_date]
 rth_bars   = today_bars[
