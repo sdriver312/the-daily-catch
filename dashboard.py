@@ -366,6 +366,32 @@ bias, bias_color, score, reasons = determine_bias(
     globex_h, globex_l,
 )
 
+# ── Bias Banner ───────────────────────────────────────────────────────────────
+st.markdown(
+    f"""
+    <div style="background:{bias_color}22; border-left:6px solid {bias_color};
+                padding:18px 24px; border-radius:8px; margin-bottom:8px;">
+      <div style="color:{bias_color}; font-size:2rem; font-weight:700; letter-spacing:2px;">
+        NY SESSION BIAS: {bias}
+      </div>
+      <div style="color:#aaa; margin-top:4px;">
+        Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
+        Reference price: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
+        {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.expander("Bias factors (click to expand)", expanded=False):
+    for arrow, text in reasons:
+        color = "#00c853" if arrow == "▲" else ("#d50000" if arrow == "▼" else "#888")
+        st.markdown(
+            f'<span style="color:{color}; font-size:1.1rem">**{arrow}**</span>&nbsp; {text}',
+            unsafe_allow_html=True,
+        )
+
 # ── Chart ─────────────────────────────────────────────────────────────────────
 fig = go.Figure()
 
@@ -431,34 +457,6 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
-
-st.divider()
-
-# ── Bias Banner ───────────────────────────────────────────────────────────────
-st.markdown(
-    f"""
-    <div style="background:{bias_color}22; border-left:6px solid {bias_color};
-                padding:18px 24px; border-radius:8px; margin-bottom:8px;">
-      <div style="color:{bias_color}; font-size:2rem; font-weight:700; letter-spacing:2px;">
-        NY SESSION BIAS: {bias}
-      </div>
-      <div style="color:#aaa; margin-top:4px;">
-        Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
-        Reference price: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
-        {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-with st.expander("Bias factors (click to expand)", expanded=True):
-    for arrow, text in reasons:
-        color = "#00c853" if arrow == "▲" else ("#d50000" if arrow == "▼" else "#888")
-        st.markdown(
-            f'<span style="color:{color}; font-size:1.1rem">**{arrow}**</span>&nbsp; {text}',
-            unsafe_allow_html=True,
-        )
 
 st.divider()
 
