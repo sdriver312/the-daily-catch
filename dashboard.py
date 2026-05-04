@@ -351,8 +351,6 @@ camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
 globex_target = next_trading_day(trade_date) if rth_closed else trade_date
 globex_h, globex_l = get_globex_levels(intraday, globex_target)
 
-# prev_rth for the sidebar — same reference session as the levels
-prev_rth = ref_rth
 
 today_bars = intraday[intraday.index.date == trade_date]
 rth_bars   = today_bars[
@@ -521,14 +519,6 @@ with c3:
         st.metric("OR Range", f"{or_range:.2f} pts")
     else:
         st.info("OR populates at 9:45 AM ET")
-    if all(v is not None for v in prev_rth):
-        rth_h, rth_l, rth_o, rth_c = prev_rth
-        st.divider()
-        st.caption("**Prev RTH Session**")
-        st.metric("RTH High",  f"{rth_h:.2f}", f"{curr_price - rth_h:+.2f}")
-        st.metric("RTH Open",  f"{rth_o:.2f}", f"{curr_price - rth_o:+.2f}")
-        st.metric("RTH Close", f"{rth_c:.2f}", f"{curr_price - rth_c:+.2f}")
-        st.metric("RTH Low",   f"{rth_l:.2f}", f"{curr_price - rth_l:+.2f}")
 
 with c4:
     st.subheader("Overnight / Globex")
