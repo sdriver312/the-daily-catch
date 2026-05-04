@@ -338,13 +338,6 @@ if not complete_rows:
 
 prev_idx = complete_rows[-1]
 
-# Weekly H/L from intraday RTH bars — consistent with PDH/PDL accuracy
-pw_high, pw_low = get_weekly_rth_levels(intraday, ref_date, lookback_days=5)
-if pw_high is None:  # fallback to daily bar if intraday window too short
-    week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
-    pw_high = round(float(week_slice["High"].max()), 2)
-    pw_low  = round(float(week_slice["Low"].min()),  2)
-
 curr_price = round(float(daily.iloc[-1]["Close"]), 2)
 
 # PDH/PDL/PDO/PDC derived from intraday RTH bars — accurate to the session,
@@ -365,6 +358,13 @@ else:
     pd_close = round(float(prev["Close"]), 2)
 
 camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
+
+# Weekly H/L from intraday RTH bars — now that ref_date is defined
+pw_high, pw_low = get_weekly_rth_levels(intraday, ref_date, lookback_days=5)
+if pw_high is None:  # fallback to daily bar if intraday window too short
+    week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
+    pw_high = round(float(week_slice["High"].max()), 2)
+    pw_low  = round(float(week_slice["Low"].min()),  2)
 
 # After 4 PM the overnight session for tomorrow has begun
 globex_target = next_trading_day(trade_date) if rth_closed else trade_date
