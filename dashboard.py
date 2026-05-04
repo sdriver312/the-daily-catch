@@ -16,7 +16,7 @@ st_autorefresh(interval=300_000, key="autorefresh")
 
 now_et = datetime.now(ET)
 st.markdown(
-    f"<div style='color:#666; font-size:0.75rem; margin-bottom:-10px;'>"
+    f"<div style='color:#555; font-size:0.72rem; margin-bottom:-10px; font-family:\"IBM Plex Mono\",monospace; letter-spacing:0.05em;'>"
     f"{now_et.strftime('%A %B %d, %Y  %H:%M ET')}</div>",
     unsafe_allow_html=True,
 )
@@ -24,13 +24,59 @@ st.markdown(
 # ── Global Typography ─────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-[data-testid="stMetricLabel"] p   { font-size: 2.52rem !important; }
-[data-testid="stMetricValue"] div { font-size: 1.35rem !important; font-weight: 600 !important; }
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+/* ── Bloomberg terminal base ── */
+html, body, [class*="css"], .stApp, .stMarkdown, button, input {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace !important;
+}
+
+/* Dim the default Streamlit background slightly warmer */
+.stApp { background-color: #0d0d0d !important; }
+
+/* ── Metrics ── */
+[data-testid="stMetricLabel"] p   {
+    font-size: 2.52rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #ff9900 !important;
+}
+[data-testid="stMetricValue"] div {
+    font-size: 1.35rem !important;
+    font-weight: 600 !important;
+    color: #f0f0f0 !important;
+}
 [data-testid="stMetricDelta"]     { font-size: 1.35rem !important; }
 [data-testid="stMetricDelta"] svg { width: 0.7rem !important; height: 0.7rem !important; }
 [data-testid="metric-container"]  { padding: 4px 0 !important; }
-h3 { font-size: 1.0rem !important; margin-bottom: 4px !important; }
-[data-testid="stCaptionContainer"] p { font-size: 0.70rem !important; }
+
+/* ── Subheaders ── */
+h3 {
+    font-size: 1.0rem !important;
+    margin-bottom: 4px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #ff9900 !important;
+}
+
+/* ── Captions / small text ── */
+[data-testid="stCaptionContainer"] p {
+    font-size: 0.70rem !important;
+    color: #666 !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+}
+
+/* ── Dividers ── */
+hr { border-color: #2a2a2a !important; }
+
+/* ── Refresh button ── */
+button[kind="secondary"], button {
+    font-family: 'IBM Plex Mono', monospace !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-color: #ff9900 !important;
+    color: #ff9900 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -229,9 +275,11 @@ with title_col:
         f"""<div style="padding-top:0px; margin-top:-20px; margin-left:-1rem;">
               <div style="display:flex; align-items:center; gap:14px;">
                 {LOGO_SVG}
-                <span style="font-size:5em; font-weight:700; color:#f0f0f0;
-                             letter-spacing:1px; line-height:1.1;">
-                  MNQ Daily Dashboard
+                <span style="font-size:5em; font-weight:700; color:#ff9900;
+                             letter-spacing:3px; line-height:1.1;
+                             font-family:'IBM Plex Mono',monospace;
+                             text-shadow:0 0 30px rgba(255,153,0,0.3);">
+                  MNQ DAILY DASHBOARD
                 </span>
               </div>
             </div>""",
