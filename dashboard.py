@@ -222,7 +222,7 @@ with title_col:
     st.markdown(
         f"""<div style="display:flex; align-items:center; gap:14px; padding-top:6px;">
               {LOGO_SVG}
-              <span style="font-size:2rem; font-weight:700; color:#f0f0f0;
+              <span style="font-size:5em; font-weight:700; color:#f0f0f0;
                            letter-spacing:1px; line-height:1.1;">
                 MNQ Daily Dashboard
               </span>
