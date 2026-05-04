@@ -315,40 +315,43 @@ if vwap and not rth_bars.empty:
         line=dict(color="rgba(255,255,255,0.85)", width=1.5, dash="dot"),
     ))
 
+# R5/S5 omitted — extreme extensions, rarely in play intraday
+# (label, value, color, dash, width)
 chart_levels = [
-    ("PDH",   pd_high,              "rgba(100,149,237,1)",   "dash"),
-    ("PDC",   pd_close,             "rgba(200,200,200,0.7)", "dot"),
-    ("PDL",   pd_low,               "rgba(100,149,237,1)",   "dash"),
-    ("R5", camarilla["R5"], "rgba(0,230,118,0.9)",   "dash"),
-    ("R4", camarilla["R4"], "rgba(105,240,174,0.9)", "dash"),
-    ("R3", camarilla["R3"], "rgba(185,246,202,0.8)", "dashdot"),
-    ("S3", camarilla["S3"], "rgba(255,171,145,0.8)", "dashdot"),
-    ("S4", camarilla["S4"], "rgba(255,112,67,0.9)",  "dash"),
-    ("S5", camarilla["S5"], "rgba(213,0,0,0.9)",     "dash"),
+    ("R4",  camarilla["R4"], "rgba(105,240,174,1)",    "solid",   2.5),
+    ("R3",  camarilla["R3"], "rgba(185,246,202,0.85)", "dashdot", 1.5),
+    ("PDH", pd_high,         "rgba(100,149,237,1)",    "dash",    1.8),
+    ("PDC", pd_close,        "rgba(180,180,180,0.65)", "dot",     1.2),
+    ("PDL", pd_low,          "rgba(100,149,237,1)",    "dash",    1.8),
+    ("S3",  camarilla["S3"], "rgba(255,171,145,0.85)", "dashdot", 1.5),
+    ("S4",  camarilla["S4"], "rgba(255,112,67,1)",     "solid",   2.5),
 ]
 if globex_h:
-    chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.9)", "dash"))
-    chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.9)", "dash"))
+    chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.85)", "dash", 1.3))
+    chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.85)", "dash", 1.3))
 if or_high:
-    chart_levels.append(("OR H", or_high, "rgba(0,220,200,0.8)", "dot"))
-    chart_levels.append(("OR L", or_low,  "rgba(0,220,200,0.8)", "dot"))
+    chart_levels.append(("OR H", or_high, "rgba(0,210,190,0.8)", "dot", 1.2))
+    chart_levels.append(("OR L", or_low,  "rgba(0,210,190,0.8)", "dot", 1.2))
 
-for label, val, color, dash in chart_levels:
+for label, val, color, dash, width in chart_levels:
     fig.add_hline(
-        y=val, line_color=color, line_dash=dash, line_width=1.2,
-        annotation_text=f" {label} {val:.0f}",
-        annotation_font_color=color, annotation_font_size=11,
+        y=val, line_color=color, line_dash=dash, line_width=width,
+        annotation_text=f"  {label}  {val:.0f}",
+        annotation_font_color=color,
+        annotation_font_size=12,
         annotation_position="right",
     )
 
 fig.update_layout(
     template="plotly_dark",
     xaxis_rangeslider_visible=False,
-    height=520,
-    margin=dict(r=90, l=10, t=10, b=10),
+    height=680,
+    margin=dict(r=130, l=10, t=10, b=10),
     xaxis_title="Time (ET)",
     yaxis_title="Price",
-    legend=dict(orientation="h", y=1.02, x=0),
+    legend=dict(orientation="h", y=1.01, x=0),
+    yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+    xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
 )
 
 st.plotly_chart(fig, use_container_width=True)
