@@ -12,7 +12,7 @@ ET = pytz.timezone("America/New_York")
 
 st.set_page_config(page_title="MNQ Daily Dashboard", layout="wide")
 
-st_autorefresh(interval=300_000, key="autorefresh")
+st_autorefresh(interval=60_000, key="autorefresh")
 
 now_et = datetime.now(ET)
 st.markdown(
