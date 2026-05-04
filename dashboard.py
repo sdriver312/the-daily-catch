@@ -175,6 +175,45 @@ def get_opening_range(intraday, session_date, minutes=15):
         return None, None
     return round(float(or_bars["High"].max()), 2), round(float(or_bars["Low"].min()), 2)
 
+# ── News Feed ────────────────────────────────────────────────────────────────
+import feedparser
+
+NEWS_FEEDS = {
+    "MarketWatch": "https://feeds.marketwatch.com/marketwatch/marketpulse/",
+    "CNBC":        "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "Reuters":     "https://feeds.reuters.com/reuters/businessNews",
+}
+
+@st.cache_data(ttl=300)
+def fetch_news():
+    items = []
+    for source, url in NEWS_FEEDS.items():
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:5]:
+                parsed = entry.get("published_parsed") or entry.get("updated_parsed")
+                if parsed:
+                    pub = datetime(*parsed[:6], tzinfo=pytz.UTC).astimezone(ET)
+                else:
+                    pub = datetime.now(ET)
+                items.append({
+                    "source": source,
+                    "title": entry.get("title", "").strip(),
+                    "link":  entry.get("link", "#"),
+                    "published": pub,
+                })
+        except Exception:
+            pass
+    items.sort(key=lambda x: x["published"], reverse=True)
+    return items[:12]
+
+def time_ago(dt):
+    mins = max(0, int((datetime.now(ET) - dt).total_seconds() / 60))
+    if mins < 1:   return "just now"
+    if mins < 60:  return f"{mins}m ago"
+    return f"{mins // 60}h {mins % 60}m ago"
+
+
 # ── Bias Engine ───────────────────────────────────────────────────────────────
 def determine_bias(price, pd_high, pd_low, pd_close, cam_h3, cam_l3,
                    globex_h, globex_l):
@@ -519,6 +558,49 @@ with c4:
         st.metric("Globex Range", f"{glo_range:.2f} pts")
     else:
         st.info("No Globex data yet.\n(Pre-market or weekend)")
+
+st.divider()
+
+# ── News Feed ─────────────────────────────────────────────────────────────────
+st.markdown(
+    "<div style='color:#ff9900; font-family:\"IBM Plex Mono\",monospace; "
+    "font-size:0.85rem; font-weight:700; letter-spacing:0.12em; "
+    "text-transform:uppercase; margin-bottom:8px;'>Market News</div>",
+    unsafe_allow_html=True,
+)
+
+news = fetch_news()
+if news:
+    source_colors = {
+        "MarketWatch": "#69f0ae",
+        "CNBC":        "#ff9900",
+        "Reuters":     "#64b5f6",
+    }
+    rows = ""
+    for item in news:
+        color = source_colors.get(item["source"], "#aaa")
+        ago   = time_ago(item["published"])
+        rows += f"""
+        <tr style="border-bottom:1px solid #1a1a1a;">
+          <td style="color:#555; font-size:0.72rem; white-space:nowrap;
+                     padding:5px 12px 5px 0; width:80px;">{ago}</td>
+          <td style="color:{color}; font-size:0.72rem; white-space:nowrap;
+                     padding:5px 12px 5px 0; width:110px;
+                     text-transform:uppercase; letter-spacing:0.06em;">{item["source"]}</td>
+          <td style="padding:5px 0; font-size:0.82rem;">
+            <a href="{item["link"]}" target="_blank"
+               style="color:#d0d0d0; text-decoration:none;"
+               onmouseover="this.style.color='#ff9900'"
+               onmouseout="this.style.color='#d0d0d0'">{item["title"]}</a>
+          </td>
+        </tr>"""
+    st.markdown(
+        f"<table style='width:100%; border-collapse:collapse; "
+        f"font-family:\"IBM Plex Mono\",monospace;'>{rows}</table>",
+        unsafe_allow_html=True,
+    )
+else:
+    st.caption("News unavailable — check your connection.")
 
 st.caption(
     "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
