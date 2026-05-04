@@ -220,7 +220,7 @@ LOGO_SVG = """
 title_col, spacer_col, btn_col = st.columns([7, 2, 1])
 with title_col:
     st.markdown(
-        f"""<div style="padding-top:0px; margin-top:-20px;">
+        f"""<div style="padding-top:0px; margin-top:-20px; margin-left:-1rem;">
               <div style="display:flex; align-items:center; gap:14px;">
                 {LOGO_SVG}
                 <span style="font-size:5em; font-weight:700; color:#f0f0f0;
