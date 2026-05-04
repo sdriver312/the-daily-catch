@@ -150,22 +150,6 @@ def get_globex_levels(intraday, trade_date):
         return None, None
     return round(float(g["High"].max()), 2), round(float(g["Low"].min()), 2)
 
-def get_rth_levels(intraday, session_date):
-    mask = (
-        (intraday.index.date == session_date) &
-        (intraday.index.time >= dtime(9, 30)) &
-        (intraday.index.time < dtime(16, 0))
-    )
-    rth = intraday[mask]
-    if rth.empty:
-        return None, None, None, None
-    return (
-        round(float(rth["High"].max()), 2),
-        round(float(rth["Low"].min()), 2),
-        round(float(rth["Open"].iloc[0]), 2),
-        round(float(rth["Close"].iloc[-1]), 2),
-    )
-
 def calc_vwap(bars):
     if bars.empty or "Volume" not in bars.columns:
         return None
@@ -177,23 +161,6 @@ def calc_vwap(bars):
     if last.empty:
         return None
     return round(float(last.iloc[-1]), 2)
-
-def get_weekly_rth_levels(intraday, ref_date, lookback_days=5):
-    """RTH high/low across the last lookback_days sessions before ref_date."""
-    rth = intraday[
-        (intraday.index.date < ref_date) &
-        (intraday.index.time >= dtime(9, 30)) &
-        (intraday.index.time < dtime(16, 0))
-    ]
-    unique_dates = sorted(set(rth.index.date))
-    if not unique_dates:
-        return None, None
-    window = set(unique_dates[-lookback_days:])
-    bars = rth[[d in window for d in rth.index.date]]
-    if bars.empty:
-        return None, None
-    return round(float(bars["High"].max()), 2), round(float(bars["Low"].min()), 2)
-
 
 def get_opening_range(intraday, session_date, minutes=15):
     start  = dtime(9, 30)
@@ -340,31 +307,32 @@ prev_idx = complete_rows[-1]
 
 curr_price = round(float(daily.iloc[-1]["Close"]), 2)
 
-# PDH/PDL/PDO/PDC derived from intraday RTH bars — accurate to the session,
-# avoids yfinance daily bar issues (incomplete bars, full Globex session vs RTH)
-ref_date = trade_date if rth_closed else prev_trading_day(trade_date)
-ref_rth  = get_rth_levels(intraday, ref_date)
-
-if all(v is not None for v in ref_rth):
-    pd_high, pd_low, pd_open, pd_close = ref_rth
-    pd_date = ref_date
-else:
-    # Fallback to daily bar if intraday doesn't cover that date
-    prev    = daily.iloc[prev_idx]
-    pd_date = daily_dates[prev_idx]
+# Full Globex session OHLC — matches TradingView daily bar
+# After 4PM today's daily bar may not have settled yet, so use intraday full-day bars
+if rth_closed:
+    full_bars = intraday[intraday.index.date == trade_date]
+    if not full_bars.empty:
+        pd_date  = trade_date
+        pd_high  = round(float(full_bars["High"].max()), 2)
+        pd_low   = round(float(full_bars["Low"].min()),  2)
+        pd_open  = round(float(full_bars["Open"].iloc[0]), 2)
+        pd_close = round(float(full_bars["Close"].iloc[-1]), 2)
+    else:
+        rth_closed = False  # force fallback below
+if not rth_closed:
+    prev     = daily.iloc[prev_idx]
+    pd_date  = daily_dates[prev_idx]
     pd_open  = round(float(prev["Open"]),  2)
     pd_high  = round(float(prev["High"]),  2)
     pd_low   = round(float(prev["Low"]),   2)
     pd_close = round(float(prev["Close"]), 2)
 
-camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
+# Weekly H/L — full Globex daily bars
+week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
+pw_high = round(float(week_slice["High"].max()), 2)
+pw_low  = round(float(week_slice["Low"].min()),  2)
 
-# Weekly H/L from intraday RTH bars — now that ref_date is defined
-pw_high, pw_low = get_weekly_rth_levels(intraday, ref_date, lookback_days=5)
-if pw_high is None:  # fallback to daily bar if intraday window too short
-    week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
-    pw_high = round(float(week_slice["High"].max()), 2)
-    pw_low  = round(float(week_slice["Low"].min()),  2)
+camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
 
 # After 4 PM the overnight session for tomorrow has begun
 globex_target = next_trading_day(trade_date) if rth_closed else trade_date
