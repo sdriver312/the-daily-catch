@@ -14,6 +14,13 @@ st.set_page_config(page_title="MNQ Daily Dashboard", layout="wide")
 
 st_autorefresh(interval=300_000, key="autorefresh")
 
+now_et = datetime.now(ET)
+st.markdown(
+    f"<div style='color:#666; font-size:0.75rem; margin-bottom:-10px;'>"
+    f"{now_et.strftime('%A %B %d, %Y  %H:%M ET')}</div>",
+    unsafe_allow_html=True,
+)
+
 # ── Global Typography ─────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -195,7 +202,6 @@ def determine_bias(price, pd_high, pd_low, pd_close, cam_h3, cam_l3,
         return "NEUTRAL / WAIT", "#9e9e9e", score, reasons
 
 # ── App Layout ────────────────────────────────────────────────────────────────
-now_et     = datetime.now(ET)
 today      = now_et.date()
 trade_date = last_trading_day(today)
 
@@ -227,11 +233,6 @@ with title_col:
                              letter-spacing:1px; line-height:1.1;">
                   MNQ Daily Dashboard
                 </span>
-              </div>
-              <div style="color:#888; font-size:0.78rem; margin-top:4px; padding-left:4px;">
-                NQ=F data (price identical to MNQ)&nbsp;&nbsp;•&nbsp;&nbsp;
-                {now_et.strftime('%A %B %d, %Y  %H:%M ET')}&nbsp;&nbsp;•&nbsp;&nbsp;
-                auto-refreshes every 5 min
               </div>
             </div>""",
         unsafe_allow_html=True,
