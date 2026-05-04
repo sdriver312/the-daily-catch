@@ -113,7 +113,7 @@ def fetch_daily(ticker):
 
 @st.cache_data(ttl=60)
 def fetch_intraday(ticker):
-    df = yf.download(ticker, period="5d", interval="5m",
+    df = yf.download(ticker, period="10d", interval="5m",
                      progress=False, auto_adjust=True)
     df = clean(df)
     if df.index.tz is None:
@@ -177,6 +177,23 @@ def calc_vwap(bars):
     if last.empty:
         return None
     return round(float(last.iloc[-1]), 2)
+
+def get_weekly_rth_levels(intraday, ref_date, lookback_days=5):
+    """RTH high/low across the last lookback_days sessions before ref_date."""
+    rth = intraday[
+        (intraday.index.date < ref_date) &
+        (intraday.index.time >= dtime(9, 30)) &
+        (intraday.index.time < dtime(16, 0))
+    ]
+    unique_dates = sorted(set(rth.index.date))
+    if not unique_dates:
+        return None, None
+    window = set(unique_dates[-lookback_days:])
+    bars = rth[[d in window for d in rth.index.date]]
+    if bars.empty:
+        return None, None
+    return round(float(bars["High"].max()), 2), round(float(bars["Low"].min()), 2)
+
 
 def get_opening_range(intraday, session_date, minutes=15):
     start  = dtime(9, 30)
@@ -321,10 +338,12 @@ if not complete_rows:
 
 prev_idx = complete_rows[-1]
 
-# Weekly H/L still uses the daily bar (broadest available window)
-week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
-pw_high = round(float(week_slice["High"].max()), 2)
-pw_low  = round(float(week_slice["Low"].min()),  2)
+# Weekly H/L from intraday RTH bars — consistent with PDH/PDL accuracy
+pw_high, pw_low = get_weekly_rth_levels(intraday, ref_date, lookback_days=5)
+if pw_high is None:  # fallback to daily bar if intraday window too short
+    week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
+    pw_high = round(float(week_slice["High"].max()), 2)
+    pw_low  = round(float(week_slice["Low"].min()),  2)
 
 curr_price = round(float(daily.iloc[-1]["Close"]), 2)
 
@@ -502,13 +521,17 @@ with c2:
 
 with c3:
     st.subheader("VWAP & Opening Range")
-    if vwap:
+    if rth_closed:
+        st.metric("VWAP", "—", "populates at 9:30 AM ET")
+    elif vwap:
         st.metric("VWAP", f"{vwap:.2f}", f"{curr_price - vwap:+.2f}")
     else:
         st.metric("VWAP", "—", "awaiting RTH open")
     st.divider()
     st.caption("**Opening Range (first 15 min)**")
-    if or_high and or_low:
+    if rth_closed:
+        st.info("OR populates at 9:45 AM ET")
+    elif or_high and or_low:
         or_mid   = round((or_high + or_low) / 2, 2)
         or_range = round(or_high - or_low, 2)
         st.metric("OR High",  f"{or_high:.2f}", f"{curr_price - or_high:+.2f}")
