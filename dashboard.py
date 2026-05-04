@@ -220,12 +220,19 @@ LOGO_SVG = """
 title_col, spacer_col, btn_col = st.columns([7, 2, 1])
 with title_col:
     st.markdown(
-        f"""<div style="display:flex; align-items:center; gap:14px; padding-top:6px;">
-              {LOGO_SVG}
-              <span style="font-size:5em; font-weight:700; color:#f0f0f0;
-                           letter-spacing:1px; line-height:1.1;">
-                MNQ Daily Dashboard
-              </span>
+        f"""<div style="padding-top:6px;">
+              <div style="display:flex; align-items:center; gap:14px;">
+                {LOGO_SVG}
+                <span style="font-size:5em; font-weight:700; color:#f0f0f0;
+                             letter-spacing:1px; line-height:1.1;">
+                  MNQ Daily Dashboard
+                </span>
+              </div>
+              <div style="color:#888; font-size:0.78rem; margin-top:4px; padding-left:4px;">
+                NQ=F data (price identical to MNQ)&nbsp;&nbsp;•&nbsp;&nbsp;
+                {now_et.strftime('%A %B %d, %Y  %H:%M ET')}&nbsp;&nbsp;•&nbsp;&nbsp;
+                auto-refreshes every 5 min
+              </div>
             </div>""",
         unsafe_allow_html=True,
     )
@@ -235,11 +242,6 @@ with btn_col:
         st.cache_data.clear()
         st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-
-st.caption(
-    f"NQ=F data (price identical to MNQ)  •  "
-    f"{now_et.strftime('%A %B %d, %Y  %H:%M ET')}  •  auto-refreshes every 5 min"
-)
 
 # ── Data Load ─────────────────────────────────────────────────────────────────
 with st.spinner("Fetching market data..."):
