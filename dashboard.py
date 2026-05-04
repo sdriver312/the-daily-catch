@@ -391,219 +391,211 @@ bias, bias_color, score, reasons = determine_bias(
     globex_h, globex_l,
 )
 
-# ── Bias Banner ───────────────────────────────────────────────────────────────
-st.markdown(
-    f"""
-    <div style="background:{bias_color}22; border-left:6px solid {bias_color};
-                padding:18px 24px; border-radius:8px; margin-bottom:8px;">
-      <div style="color:{bias_color}; font-size:2rem; font-weight:700; letter-spacing:2px;">
-        NY SESSION BIAS: {bias}
-      </div>
-      <div style="color:#aaa; margin-top:4px;">
-        Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
-        Reference price: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
-        {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
-      </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# ── Two-column layout: main content | news rail ───────────────────────────────
+main_col, news_col = st.columns([4, 1])
 
-with st.expander("Bias factors (click to expand)", expanded=False):
-    for arrow, text in reasons:
-        color = "#00c853" if arrow == "▲" else ("#d50000" if arrow == "▼" else "#888")
-        st.markdown(
-            f'<span style="color:{color}; font-size:1.1rem">**{arrow}**</span>&nbsp; {text}',
-            unsafe_allow_html=True,
-        )
-
-# ── Chart ─────────────────────────────────────────────────────────────────────
-fig = go.Figure()
-
-if not today_bars.empty:
-    fig.add_trace(go.Candlestick(
-        x=today_bars.index,
-        open=today_bars["Open"],
-        high=today_bars["High"],
-        low=today_bars["Low"],
-        close=today_bars["Close"],
-        name="NQ",
-        increasing_line_color="#00c853",
-        decreasing_line_color="#d50000",
-    ))
-
-if vwap and not rth_bars.empty:
-    vol = rth_bars["Volume"].replace(0, float("nan"))
-    typical  = (rth_bars["High"] + rth_bars["Low"] + rth_bars["Close"]) / 3
-    vwap_line = (typical * vol).cumsum() / vol.cumsum()
-    fig.add_trace(go.Scatter(
-        x=vwap_line.index, y=vwap_line.values,
-        mode="lines", name="VWAP",
-        line=dict(color="rgba(255,255,255,0.85)", width=1.5, dash="dot"),
-    ))
-
-# R5/S5 omitted — extreme extensions, rarely in play intraday
-# (label, value, color, dash, width)
-chart_levels = [
-    ("R4",  camarilla["R4"], "rgba(105,240,174,1)",    "solid",   2.5),
-    ("R3",  camarilla["R3"], "rgba(185,246,202,0.85)", "dashdot", 1.5),
-    ("PDH", pd_high,         "rgba(100,149,237,1)",    "dash",    1.8),
-    ("PDC", pd_close,        "rgba(180,180,180,0.65)", "dot",     1.2),
-    ("PDL", pd_low,          "rgba(100,149,237,1)",    "dash",    1.8),
-    ("S3",  camarilla["S3"], "rgba(255,171,145,0.85)", "dashdot", 1.5),
-    ("S4",  camarilla["S4"], "rgba(255,112,67,1)",     "solid",   2.5),
-]
-if globex_h:
-    chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.85)", "dash", 1.3))
-    chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.85)", "dash", 1.3))
-if or_high:
-    chart_levels.append(("OR H", or_high, "rgba(0,210,190,0.8)", "dot", 1.2))
-    chart_levels.append(("OR L", or_low,  "rgba(0,210,190,0.8)", "dot", 1.2))
-
-for label, val, color, dash, width in chart_levels:
-    fig.add_hline(
-        y=val, line_color=color, line_dash=dash, line_width=width,
-        annotation_text=f"  {label}  {val:.0f}",
-        annotation_font_color=color,
-        annotation_font_size=12,
-        annotation_position="right",
-    )
-
-fig.update_layout(
-    template="plotly_dark",
-    xaxis_rangeslider_visible=False,
-    height=680,
-    margin=dict(r=130, l=10, t=10, b=10),
-    xaxis_title="Time (ET)",
-    yaxis_title="Price",
-    legend=dict(orientation="h", y=1.01, x=0),
-    yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
-    xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-st.divider()
-
-# ── Levels Grid ───────────────────────────────────────────────────────────────
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
-    st.subheader("Camarilla (CAMS)")
-    cam_colors = {
-        "R5": "#00e676",
-        "R4": "#69f0ae",
-        "R3": "#b9f6ca",
-        "S3": "#ffab91",
-        "S4": "#ff7043",
-        "S5": "#d50000",
-    }
-    cam_html = ""
-    for name in ["R5", "R4", "R3", "S3", "S4", "S5"]:
-        val   = camarilla[name]
-        delta = curr_price - val
-        color = cam_colors[name]
-        arrow = "▲" if delta > 0 else "▼"
-        cam_html += f"""
-        <div style="background:{color}18; border-left:4px solid {color};
-                    padding:6px 12px; margin:3px 0; border-radius:5px;">
-          <span style="color:{color}; font-weight:700; font-size:1.4rem">{name}</span>
-          <span style="color:#f0f0f0; float:right; font-size:1.4rem; font-weight:600">{val:.2f}</span>
-          <br>
-          <span style="color:#aaa; font-size:0.88rem">{arrow} {delta:+.2f} from price</span>
-        </div>"""
-    st.markdown(cam_html, unsafe_allow_html=True)
-
-with c2:
-    st.subheader(f"Prev Day  ({pd_date})")
-    st.metric("PDH — High",  f"{pd_high:.2f}",  f"{curr_price - pd_high:+.2f}")
-    st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
-    st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
-    st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
-    st.divider()
-    st.caption("**Prev Week**")
-    st.metric("PWH", f"{pw_high:.2f}", f"{curr_price - pw_high:+.2f}")
-    st.metric("PWL", f"{pw_low:.2f}",  f"{curr_price - pw_low:+.2f}")
-
-with c3:
-    st.subheader("VWAP & Opening Range")
-    if rth_closed:
-        st.metric("VWAP", "—", "populates at 9:30 AM ET")
-    elif vwap:
-        st.metric("VWAP", f"{vwap:.2f}", f"{curr_price - vwap:+.2f}")
-    else:
-        st.metric("VWAP", "—", "awaiting RTH open")
-    st.divider()
-    st.caption("**Opening Range (first 15 min)**")
-    if rth_closed:
-        st.info("OR populates at 9:45 AM ET")
-    elif or_high and or_low:
-        or_mid   = round((or_high + or_low) / 2, 2)
-        or_range = round(or_high - or_low, 2)
-        st.metric("OR High",  f"{or_high:.2f}", f"{curr_price - or_high:+.2f}")
-        st.metric("OR Mid",   f"{or_mid:.2f}",  f"{curr_price - or_mid:+.2f}")
-        st.metric("OR Low",   f"{or_low:.2f}",  f"{curr_price - or_low:+.2f}")
-        st.metric("OR Range", f"{or_range:.2f} pts")
-    else:
-        st.info("OR populates at 9:45 AM ET")
-
-with c4:
-    st.subheader("Overnight / Globex")
-    if globex_h and globex_l:
-        glo_mid   = round((globex_h + globex_l) / 2, 2)
-        glo_range = round(globex_h - globex_l, 2)
-        st.metric("Globex High",  f"{globex_h:.2f}", f"{curr_price - globex_h:+.2f}")
-        st.metric("Globex Mid",   f"{glo_mid:.2f}",  f"{curr_price - glo_mid:+.2f}")
-        st.metric("Globex Low",   f"{globex_l:.2f}", f"{curr_price - globex_l:+.2f}")
-        st.metric("Globex Range", f"{glo_range:.2f} pts")
-    else:
-        st.info("No Globex data yet.\n(Pre-market or weekend)")
-
-st.divider()
-
-# ── News Feed ─────────────────────────────────────────────────────────────────
-st.markdown(
-    "<div style='color:#ff9900; font-family:\"IBM Plex Mono\",monospace; "
-    "font-size:0.85rem; font-weight:700; letter-spacing:0.12em; "
-    "text-transform:uppercase; margin-bottom:8px;'>Market News</div>",
-    unsafe_allow_html=True,
-)
-
-news = fetch_news()
-if news:
-    source_colors = {
-        "MarketWatch": "#69f0ae",
-        "CNBC":        "#ff9900",
-        "Reuters":     "#64b5f6",
-    }
-    rows = ""
-    for item in news:
-        color = source_colors.get(item["source"], "#aaa")
-        ago   = time_ago(item["published"])
-        rows += f"""
-        <tr style="border-bottom:1px solid #1a1a1a;">
-          <td style="color:#555; font-size:0.72rem; white-space:nowrap;
-                     padding:5px 12px 5px 0; width:80px;">{ago}</td>
-          <td style="color:{color}; font-size:0.72rem; white-space:nowrap;
-                     padding:5px 12px 5px 0; width:110px;
-                     text-transform:uppercase; letter-spacing:0.06em;">{item["source"]}</td>
-          <td style="padding:5px 0; font-size:0.82rem;">
-            <a href="{item["link"]}" target="_blank"
-               style="color:#d0d0d0; text-decoration:none;"
-               onmouseover="this.style.color='#ff9900'"
-               onmouseout="this.style.color='#d0d0d0'">{item["title"]}</a>
-          </td>
-        </tr>"""
+# ── News Rail (right) ─────────────────────────────────────────────────────────
+with news_col:
     st.markdown(
-        f"<table style='width:100%; border-collapse:collapse; "
-        f"font-family:\"IBM Plex Mono\",monospace;'>{rows}</table>",
+        "<div style='color:#ff9900; font-family:\"IBM Plex Mono\",monospace; "
+        "font-size:0.78rem; font-weight:700; letter-spacing:0.12em; "
+        "text-transform:uppercase; margin-bottom:10px; border-bottom:1px solid #2a2a2a; "
+        "padding-bottom:6px;'>Market News</div>",
         unsafe_allow_html=True,
     )
-else:
-    st.caption("News unavailable — check your connection.")
+    news = fetch_news()
+    if news:
+        source_colors = {
+            "MarketWatch": "#69f0ae",
+            "CNBC":        "#ff9900",
+            "Reuters":     "#64b5f6",
+        }
+        cards = ""
+        for item in news:
+            color = source_colors.get(item["source"], "#aaa")
+            ago   = time_ago(item["published"])
+            cards += f"""
+            <div style="border-bottom:1px solid #1a1a1a; padding:7px 0;">
+              <div style="color:{color}; font-size:0.65rem; text-transform:uppercase;
+                          letter-spacing:0.06em; margin-bottom:3px;">
+                {item["source"]} &nbsp;·&nbsp;
+                <span style="color:#555;">{ago}</span>
+              </div>
+              <div style="font-size:0.76rem; line-height:1.35; color:#c8c8c8;">
+                <a href="{item["link"]}" target="_blank"
+                   style="color:#c8c8c8; text-decoration:none;">{item["title"]}</a>
+              </div>
+            </div>"""
+        st.markdown(
+            f"<div style='font-family:\"IBM Plex Mono\",monospace;'>{cards}</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.caption("News unavailable.")
 
-st.caption(
-    "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
-    "Camarilla R5/S5 = Close ± (High − Low).  "
-    "Bias is informational — not financial advice."
-)
+# ── Main Content (left) ───────────────────────────────────────────────────────
+with main_col:
+    # Bias Banner
+    st.markdown(
+        f"""
+        <div style="background:{bias_color}22; border-left:6px solid {bias_color};
+                    padding:18px 24px; border-radius:8px; margin-bottom:8px;">
+          <div style="color:{bias_color}; font-size:2rem; font-weight:700; letter-spacing:2px;">
+            NY SESSION BIAS: {bias}
+          </div>
+          <div style="color:#aaa; margin-top:4px;">
+            Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
+            Reference price: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
+            {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("Bias factors (click to expand)", expanded=False):
+        for arrow, text in reasons:
+            color = "#00c853" if arrow == "▲" else ("#d50000" if arrow == "▼" else "#888")
+            st.markdown(
+                f'<span style="color:{color}; font-size:1.1rem">**{arrow}**</span>&nbsp; {text}',
+                unsafe_allow_html=True,
+            )
+
+    # Chart
+    fig = go.Figure()
+    if not today_bars.empty:
+        fig.add_trace(go.Candlestick(
+            x=today_bars.index,
+            open=today_bars["Open"],
+            high=today_bars["High"],
+            low=today_bars["Low"],
+            close=today_bars["Close"],
+            name="NQ",
+            increasing_line_color="#00c853",
+            decreasing_line_color="#d50000",
+        ))
+    if vwap and not rth_bars.empty:
+        vol = rth_bars["Volume"].replace(0, float("nan"))
+        typical   = (rth_bars["High"] + rth_bars["Low"] + rth_bars["Close"]) / 3
+        vwap_line = (typical * vol).cumsum() / vol.cumsum()
+        fig.add_trace(go.Scatter(
+            x=vwap_line.index, y=vwap_line.values,
+            mode="lines", name="VWAP",
+            line=dict(color="rgba(255,255,255,0.85)", width=1.5, dash="dot"),
+        ))
+    chart_levels = [
+        ("R4",  camarilla["R4"], "rgba(105,240,174,1)",    "solid",   2.5),
+        ("R3",  camarilla["R3"], "rgba(185,246,202,0.85)", "dashdot", 1.5),
+        ("PDH", pd_high,         "rgba(100,149,237,1)",    "dash",    1.8),
+        ("PDC", pd_close,        "rgba(180,180,180,0.65)", "dot",     1.2),
+        ("PDL", pd_low,          "rgba(100,149,237,1)",    "dash",    1.8),
+        ("S3",  camarilla["S3"], "rgba(255,171,145,0.85)", "dashdot", 1.5),
+        ("S4",  camarilla["S4"], "rgba(255,112,67,1)",     "solid",   2.5),
+    ]
+    if globex_h:
+        chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.85)", "dash", 1.3))
+        chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.85)", "dash", 1.3))
+    if or_high:
+        chart_levels.append(("OR H", or_high, "rgba(0,210,190,0.8)", "dot", 1.2))
+        chart_levels.append(("OR L", or_low,  "rgba(0,210,190,0.8)", "dot", 1.2))
+    for label, val, color, dash, width in chart_levels:
+        fig.add_hline(
+            y=val, line_color=color, line_dash=dash, line_width=width,
+            annotation_text=f"  {label}  {val:.0f}",
+            annotation_font_color=color, annotation_font_size=12,
+            annotation_position="right",
+        )
+    fig.update_layout(
+        template="plotly_dark",
+        xaxis_rangeslider_visible=False,
+        height=680,
+        margin=dict(r=130, l=10, t=10, b=10),
+        xaxis_title="Time (ET)",
+        yaxis_title="Price",
+        legend=dict(orientation="h", y=1.01, x=0),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+        xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.divider()
+
+    # Levels Grid
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        st.subheader("Camarilla (CAMS)")
+        cam_colors = {
+            "R5": "#00e676",
+            "R4": "#69f0ae",
+            "R3": "#b9f6ca",
+            "S3": "#ffab91",
+            "S4": "#ff7043",
+            "S5": "#d50000",
+        }
+        cam_html = ""
+        for name in ["R5", "R4", "R3", "S3", "S4", "S5"]:
+            val   = camarilla[name]
+            delta = curr_price - val
+            color = cam_colors[name]
+            arrow = "▲" if delta > 0 else "▼"
+            cam_html += f"""
+            <div style="background:{color}18; border-left:4px solid {color};
+                        padding:6px 12px; margin:3px 0; border-radius:5px;">
+              <span style="color:{color}; font-weight:700; font-size:1.4rem">{name}</span>
+              <span style="color:#f0f0f0; float:right; font-size:1.4rem; font-weight:600">{val:.2f}</span>
+              <br>
+              <span style="color:#aaa; font-size:0.88rem">{arrow} {delta:+.2f} from price</span>
+            </div>"""
+        st.markdown(cam_html, unsafe_allow_html=True)
+
+    with c2:
+        st.subheader(f"Prev Day  ({pd_date})")
+        st.metric("PDH — High",  f"{pd_high:.2f}",  f"{curr_price - pd_high:+.2f}")
+        st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
+        st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
+        st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
+        st.divider()
+        st.caption("**Prev Week**")
+        st.metric("PWH", f"{pw_high:.2f}", f"{curr_price - pw_high:+.2f}")
+        st.metric("PWL", f"{pw_low:.2f}",  f"{curr_price - pw_low:+.2f}")
+
+    with c3:
+        st.subheader("VWAP & Opening Range")
+        if rth_closed:
+            st.metric("VWAP", "—", "populates at 9:30 AM ET")
+        elif vwap:
+            st.metric("VWAP", f"{vwap:.2f}", f"{curr_price - vwap:+.2f}")
+        else:
+            st.metric("VWAP", "—", "awaiting RTH open")
+        st.divider()
+        st.caption("**Opening Range (first 15 min)**")
+        if rth_closed:
+            st.info("OR populates at 9:45 AM ET")
+        elif or_high and or_low:
+            or_mid   = round((or_high + or_low) / 2, 2)
+            or_range = round(or_high - or_low, 2)
+            st.metric("OR High",  f"{or_high:.2f}", f"{curr_price - or_high:+.2f}")
+            st.metric("OR Mid",   f"{or_mid:.2f}",  f"{curr_price - or_mid:+.2f}")
+            st.metric("OR Low",   f"{or_low:.2f}",  f"{curr_price - or_low:+.2f}")
+            st.metric("OR Range", f"{or_range:.2f} pts")
+        else:
+            st.info("OR populates at 9:45 AM ET")
+
+    with c4:
+        st.subheader("Overnight / Globex")
+        if globex_h and globex_l:
+            glo_mid   = round((globex_h + globex_l) / 2, 2)
+            glo_range = round(globex_h - globex_l, 2)
+            st.metric("Globex High",  f"{globex_h:.2f}", f"{curr_price - globex_h:+.2f}")
+            st.metric("Globex Mid",   f"{glo_mid:.2f}",  f"{curr_price - glo_mid:+.2f}")
+            st.metric("Globex Low",   f"{globex_l:.2f}", f"{curr_price - globex_l:+.2f}")
+            st.metric("Globex Range", f"{glo_range:.2f} pts")
+        else:
+            st.info("No Globex data yet.\n(Pre-market or weekend)")
+
+    st.caption(
+        "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
+        "Camarilla R5/S5 = Close ± (High − Low).  "
+        "Bias is informational — not financial advice."
+    )
