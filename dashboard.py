@@ -461,6 +461,71 @@ with main_col:
                 unsafe_allow_html=True,
             )
 
+    # ── Top 5 Watch List ──────────────────────────────────────────────────────
+    all_levels = {
+        "R5":     camarilla["R5"],
+        "R4":     camarilla["R4"],
+        "R3":     camarilla["R3"],
+        "S3":     camarilla["S3"],
+        "S4":     camarilla["S4"],
+        "S5":     camarilla["S5"],
+        "PDH":    pd_high,
+        "PDC":    pd_close,
+        "PDL":    pd_low,
+    }
+    if globex_h:
+        all_levels["Glob H"] = globex_h
+        all_levels["Glob L"] = globex_l
+    if vwap:
+        all_levels["VWAP"] = vwap
+    if or_high:
+        all_levels["OR H"] = or_high
+        all_levels["OR L"] = or_low
+    if pw_high:
+        all_levels["PWH"] = pw_high
+        all_levels["PWL"] = pw_low
+
+    top5 = sorted(all_levels.items(), key=lambda x: abs(x[1] - curr_price))[:5]
+
+    level_base_colors = {
+        "R5": "#00e676", "R4": "#69f0ae", "R3": "#b9f6ca",
+        "S3": "#ffab91", "S4": "#ff7043", "S5": "#d50000",
+        "PDH": "#6495ed", "PDC": "#aaaaaa", "PDL": "#6495ed",
+        "Glob H": "#ce93d8", "Glob L": "#ce93d8",
+        "VWAP": "#ffffff", "OR H": "#4dd0e1", "OR L": "#4dd0e1",
+        "PWH": "#546e7a", "PWL": "#546e7a",
+    }
+
+    cards = ""
+    for name, val in top5:
+        dist  = curr_price - val
+        arrow = "▲" if dist > 0 else "▼"
+        color = level_base_colors.get(name, "#aaa")
+        cards += f"""
+        <div style="flex:1; background:#141414; border-left:3px solid {color};
+                    padding:10px 12px; border-radius:5px; min-width:0;">
+          <div style="color:{color}; font-size:0.7rem; font-weight:700;
+                      text-transform:uppercase; letter-spacing:0.08em;">{name}</div>
+          <div style="color:#f0f0f0; font-size:1.15rem; font-weight:600;
+                      margin:3px 0;">{val:.2f}</div>
+          <div style="color:#555; font-size:0.68rem;">{arrow} {abs(dist):.2f} pts</div>
+        </div>"""
+
+    st.markdown(
+        f"""<div style="border:1px solid #2a2a2a; border-radius:7px;
+                        padding:12px 16px; margin:10px 0; background:#0f0f0f;">
+              <div style="color:#ff9900; font-size:0.7rem; font-weight:700;
+                          text-transform:uppercase; letter-spacing:0.12em;
+                          margin-bottom:10px; font-family:'IBM Plex Mono',monospace;">
+                ⚑ &nbsp;Key Levels — Watch List
+              </div>
+              <div style="display:flex; gap:10px; font-family:'IBM Plex Mono',monospace;">
+                {cards}
+              </div>
+            </div>""",
+        unsafe_allow_html=True,
+    )
+
     # Chart
     fig = go.Figure()
     if not today_bars.empty:
