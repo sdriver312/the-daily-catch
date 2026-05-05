@@ -271,23 +271,10 @@ LOGO_SVG = """
         stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="5,3"/>
 </svg>"""
 
-# Title row
+# Title row — placeholder filled with bias color after data loads
 title_col, spacer_col, btn_col = st.columns([7, 2, 1])
 with title_col:
-    st.markdown(
-        f"""<div style="padding-top:0px; margin-top:-20px; margin-left:-1rem;">
-              <div style="display:flex; align-items:center; gap:14px;">
-                {LOGO_SVG}
-                <span style="font-size:5em; font-weight:700; color:#ff9900;
-                             letter-spacing:3px; line-height:1.1;
-                             font-family:'IBM Plex Mono',monospace;
-                             text-shadow:0 0 30px rgba(255,153,0,0.3);">
-                  MNQ DAILY DASHBOARD
-                </span>
-              </div>
-            </div>""",
-        unsafe_allow_html=True,
-    )
+    title_slot = st.empty()
 with btn_col:
     st.markdown("<div style='padding-top:18px'>", unsafe_allow_html=True)
     if st.button("⟳ Refresh", use_container_width=True):
@@ -358,6 +345,18 @@ bias, bias_color, score, reasons = determine_bias(
     curr_price, pd_high, pd_low, pd_close,
     camarilla["R3"], camarilla["S3"],
     globex_h, globex_l,
+)
+
+# Fill title with bias color now that we know it
+title_slot.markdown(
+    f'<div style="padding-top:0px; margin-top:-20px; margin-left:-1rem;">'
+    f'<div style="display:flex; align-items:center; gap:14px;">'
+    f'{LOGO_SVG}'
+    f'<span style="font-size:5em; font-weight:700; color:{bias_color};'
+    f'letter-spacing:3px; line-height:1.1; font-family:\'IBM Plex Mono\',monospace;'
+    f'text-shadow:0 0 20px {bias_color}55;">MNQ DAILY DASHBOARD</span>'
+    f'</div></div>',
+    unsafe_allow_html=True,
 )
 
 # ── Two-column layout: main content | news rail ───────────────────────────────
