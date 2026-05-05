@@ -389,7 +389,7 @@ with news_col:
                 {item["source"]} &nbsp;·&nbsp;
                 <span style="color:#555;">{ago}</span>
               </div>
-              <div style="font-size:0.76rem; line-height:1.35; color:#c8c8c8;">
+              <div style="font-size:1.00em; line-height:1.35; color:#c8c8c8;">
                 <a href="{item["link"]}" target="_blank"
                    style="color:#c8c8c8; text-decoration:none;">{item["title"]}</a>
               </div>
