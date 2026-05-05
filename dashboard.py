@@ -462,30 +462,36 @@ with main_col:
             )
 
     # ── Top 5 Watch List ──────────────────────────────────────────────────────
-    all_levels = {
+    # R4 and S4 always locked in — they define the breakout/breakdown triggers
+    # VWAP excluded — user has it as a chart indicator already
+    anchored = {
+        "R4": camarilla["R4"],
+        "S4": camarilla["S4"],
+    }
+    pool = {
         "R5":     camarilla["R5"],
-        "R4":     camarilla["R4"],
         "R3":     camarilla["R3"],
         "S3":     camarilla["S3"],
-        "S4":     camarilla["S4"],
         "S5":     camarilla["S5"],
         "PDH":    pd_high,
         "PDC":    pd_close,
         "PDL":    pd_low,
     }
     if globex_h:
-        all_levels["Glob H"] = globex_h
-        all_levels["Glob L"] = globex_l
-    if vwap:
-        all_levels["VWAP"] = vwap
+        pool["Glob H"] = globex_h
+        pool["Glob L"] = globex_l
     if or_high:
-        all_levels["OR H"] = or_high
-        all_levels["OR L"] = or_low
+        pool["OR H"] = or_high
+        pool["OR L"] = or_low
     if pw_high:
-        all_levels["PWH"] = pw_high
-        all_levels["PWL"] = pw_low
+        pool["PWH"] = pw_high
+        pool["PWL"] = pw_low
 
-    top5 = sorted(all_levels.items(), key=lambda x: abs(x[1] - curr_price))[:5]
+    # Fill remaining 3 slots with closest levels from the pool
+    closest3 = sorted(pool.items(), key=lambda x: abs(x[1] - curr_price))[:3]
+    top5 = list(anchored.items()) + closest3
+    # Re-sort the final 5 by price descending so they read high → low
+    top5 = sorted(top5, key=lambda x: x[1], reverse=True)
 
     level_base_colors = {
         "R5": "#00e676", "R4": "#69f0ae", "R3": "#b9f6ca",
