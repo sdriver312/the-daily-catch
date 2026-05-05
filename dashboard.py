@@ -507,28 +507,25 @@ with main_col:
         dist  = curr_price - val
         arrow = "▲" if dist > 0 else "▼"
         color = level_base_colors.get(name, "#aaa")
-        cards += f"""
-        <div style="flex:1; background:#141414; border-left:3px solid {color};
-                    padding:10px 12px; border-radius:5px; min-width:0;">
-          <div style="color:{color}; font-size:0.7rem; font-weight:700;
-                      text-transform:uppercase; letter-spacing:0.08em;">{name}</div>
-          <div style="color:#f0f0f0; font-size:1.15rem; font-weight:600;
-                      margin:3px 0;">{val:.2f}</div>
-          <div style="color:#555; font-size:0.68rem;">{arrow} {abs(dist):.2f} pts</div>
-        </div>"""
+        cards += (
+            f'<div style="flex:1;background:#141414;border-left:3px solid {color};'
+            f'padding:10px 12px;border-radius:5px;min-width:0;">'
+            f'<div style="color:{color};font-size:0.7rem;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:0.08em;">{name}</div>'
+            f'<div style="color:#f0f0f0;font-size:1.15rem;font-weight:600;'
+            f'margin:3px 0;">{val:.2f}</div>'
+            f'<div style="color:#555;font-size:0.68rem;">{arrow} {abs(dist):.2f} pts</div>'
+            f'</div>'
+        )
 
     st.markdown(
-        f"""<div style="border:1px solid #2a2a2a; border-radius:7px;
-                        padding:12px 16px; margin:10px 0; background:#0f0f0f;">
-              <div style="color:#ff9900; font-size:0.7rem; font-weight:700;
-                          text-transform:uppercase; letter-spacing:0.12em;
-                          margin-bottom:10px; font-family:'IBM Plex Mono',monospace;">
-                ⚑ &nbsp;Key Levels — Watch List
-              </div>
-              <div style="display:flex; gap:10px; font-family:'IBM Plex Mono',monospace;">
-                {cards}
-              </div>
-            </div>""",
+        '<div style="border:1px solid #2a2a2a;border-radius:7px;padding:12px 16px;'
+        'margin:10px 0;background:#0f0f0f;">'
+        '<div style="color:#ff9900;font-size:0.7rem;font-weight:700;'
+        'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'
+        'font-family:\'IBM Plex Mono\',monospace;">&#9873; &nbsp;Key Levels — Watch List</div>'
+        f'<div style="display:flex;gap:10px;font-family:\'IBM Plex Mono\',monospace;">{cards}</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
