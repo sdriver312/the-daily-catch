@@ -149,31 +149,6 @@ def get_globex_levels(intraday, trade_date):
         return None, None
     return round(float(g["High"].max()), 2), round(float(g["Low"].min()), 2)
 
-def calc_vwap(bars):
-    if bars.empty or "Volume" not in bars.columns:
-        return None
-    vol = bars["Volume"].replace(0, float("nan"))
-    typical = (bars["High"] + bars["Low"] + bars["Close"]) / 3
-    cum_pv = (typical * vol).cumsum()
-    cum_v  = vol.cumsum()
-    last = (cum_pv / cum_v).dropna()
-    if last.empty:
-        return None
-    return round(float(last.iloc[-1]), 2)
-
-def get_opening_range(intraday, session_date, minutes=15):
-    start  = dtime(9, 30)
-    end_dt = datetime.combine(session_date, start) + timedelta(minutes=minutes)
-    end    = end_dt.time()
-    mask = (
-        (intraday.index.date == session_date) &
-        (intraday.index.time >= start) &
-        (intraday.index.time < end)
-    )
-    or_bars = intraday[mask]
-    if or_bars.empty:
-        return None, None
-    return round(float(or_bars["High"].max()), 2), round(float(or_bars["Low"].min()), 2)
 
 # ── News Feed ────────────────────────────────────────────────────────────────
 import feedparser
@@ -378,12 +353,6 @@ globex_h, globex_l = get_globex_levels(intraday, globex_target)
 
 
 today_bars = intraday[intraday.index.date == trade_date]
-rth_bars   = today_bars[
-    (today_bars.index.time >= dtime(9, 30)) &
-    (today_bars.index.time < dtime(16, 0))
-]
-vwap    = calc_vwap(rth_bars)
-or_high, or_low = get_opening_range(intraday, trade_date, minutes=15)
 
 bias, bias_color, score, reasons = determine_bias(
     curr_price, pd_high, pd_low, pd_close,
@@ -461,74 +430,6 @@ with main_col:
                 unsafe_allow_html=True,
             )
 
-    # ── Top 5 Watch List ──────────────────────────────────────────────────────
-    # R4 and S4 always locked in — they define the breakout/breakdown triggers
-    # VWAP excluded — user has it as a chart indicator already
-    anchored = {
-        "R4": camarilla["R4"],
-        "S4": camarilla["S4"],
-    }
-    pool = {
-        "R5":     camarilla["R5"],
-        "R3":     camarilla["R3"],
-        "S3":     camarilla["S3"],
-        "S5":     camarilla["S5"],
-        "PDH":    pd_high,
-        "PDC":    pd_close,
-        "PDL":    pd_low,
-    }
-    if globex_h:
-        pool["Glob H"] = globex_h
-        pool["Glob L"] = globex_l
-    if or_high:
-        pool["OR H"] = or_high
-        pool["OR L"] = or_low
-    if pw_high:
-        pool["PWH"] = pw_high
-        pool["PWL"] = pw_low
-
-    # Fill remaining 3 slots with closest levels from the pool
-    closest3 = sorted(pool.items(), key=lambda x: abs(x[1] - curr_price))[:3]
-    top5 = list(anchored.items()) + closest3
-    # Re-sort the final 5 by price descending so they read high → low
-    top5 = sorted(top5, key=lambda x: x[1], reverse=True)
-
-    level_base_colors = {
-        "R5": "#00e676", "R4": "#69f0ae", "R3": "#b9f6ca",
-        "S3": "#ffab91", "S4": "#ff7043", "S5": "#d50000",
-        "PDH": "#6495ed", "PDC": "#aaaaaa", "PDL": "#6495ed",
-        "Glob H": "#ce93d8", "Glob L": "#ce93d8",
-        "VWAP": "#ffffff", "OR H": "#4dd0e1", "OR L": "#4dd0e1",
-        "PWH": "#546e7a", "PWL": "#546e7a",
-    }
-
-    cards = ""
-    for name, val in top5:
-        dist  = curr_price - val
-        arrow = "▲" if dist > 0 else "▼"
-        color = level_base_colors.get(name, "#aaa")
-        cards += (
-            f'<div style="flex:1;background:#141414;border-left:3px solid {color};'
-            f'padding:10px 12px;border-radius:5px;min-width:0;">'
-            f'<div style="color:{color};font-size:0.7rem;font-weight:700;'
-            f'text-transform:uppercase;letter-spacing:0.08em;">{name}</div>'
-            f'<div style="color:#f0f0f0;font-size:1.15rem;font-weight:600;'
-            f'margin:3px 0;">{val:.2f}</div>'
-            f'<div style="color:#555;font-size:0.68rem;">{arrow} {abs(dist):.2f} pts</div>'
-            f'</div>'
-        )
-
-    st.markdown(
-        '<div style="border:1px solid #2a2a2a;border-radius:7px;padding:12px 16px;'
-        'margin:10px 0;background:#0f0f0f;">'
-        '<div style="color:#ff9900;font-size:0.7rem;font-weight:700;'
-        'text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;'
-        'font-family:\'IBM Plex Mono\',monospace;">&#9873; &nbsp;Key Levels — Watch List</div>'
-        f'<div style="display:flex;gap:10px;font-family:\'IBM Plex Mono\',monospace;">{cards}</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
     # Chart
     fig = go.Figure()
     if not today_bars.empty:
@@ -542,15 +443,6 @@ with main_col:
             increasing_line_color="#00c853",
             decreasing_line_color="#d50000",
         ))
-    if vwap and not rth_bars.empty:
-        vol = rth_bars["Volume"].replace(0, float("nan"))
-        typical   = (rth_bars["High"] + rth_bars["Low"] + rth_bars["Close"]) / 3
-        vwap_line = (typical * vol).cumsum() / vol.cumsum()
-        fig.add_trace(go.Scatter(
-            x=vwap_line.index, y=vwap_line.values,
-            mode="lines", name="VWAP",
-            line=dict(color="rgba(255,255,255,0.85)", width=1.5, dash="dot"),
-        ))
     chart_levels = [
         ("R4",  camarilla["R4"], "rgba(105,240,174,1)",    "solid",   2.5),
         ("R3",  camarilla["R3"], "rgba(185,246,202,0.85)", "dashdot", 1.5),
@@ -563,9 +455,6 @@ with main_col:
     if globex_h:
         chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.85)", "dash", 1.3))
         chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.85)", "dash", 1.3))
-    if or_high:
-        chart_levels.append(("OR H", or_high, "rgba(0,210,190,0.8)", "dot", 1.2))
-        chart_levels.append(("OR L", or_low,  "rgba(0,210,190,0.8)", "dot", 1.2))
     for label, val, color, dash, width in chart_levels:
         fig.add_hline(
             y=val, line_color=color, line_dash=dash, line_width=width,
@@ -623,32 +512,18 @@ with main_col:
         st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
         st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
         st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
-        st.divider()
-        st.caption("**Prev Week**")
-        st.metric("PWH", f"{pw_high:.2f}", f"{curr_price - pw_high:+.2f}")
-        st.metric("PWL", f"{pw_low:.2f}",  f"{curr_price - pw_low:+.2f}")
 
     with c3:
-        st.subheader("VWAP & Opening Range")
-        if rth_closed:
-            st.metric("VWAP", "—", "populates at 9:30 AM ET")
-        elif vwap:
-            st.metric("VWAP", f"{vwap:.2f}", f"{curr_price - vwap:+.2f}")
+        st.subheader("Prev Week")
+        if pw_high and pw_low:
+            pw_mid   = round((pw_high + pw_low) / 2, 2)
+            pw_range = round(pw_high - pw_low, 2)
+            st.metric("PWH — High",  f"{pw_high:.2f}", f"{curr_price - pw_high:+.2f}")
+            st.metric("PWM — Mid",   f"{pw_mid:.2f}",  f"{curr_price - pw_mid:+.2f}")
+            st.metric("PWL — Low",   f"{pw_low:.2f}",  f"{curr_price - pw_low:+.2f}")
+            st.metric("PW Range",    f"{pw_range:.2f} pts")
         else:
-            st.metric("VWAP", "—", "awaiting RTH open")
-        st.divider()
-        st.caption("**Opening Range (first 15 min)**")
-        if rth_closed:
-            st.info("OR populates at 9:45 AM ET")
-        elif or_high and or_low:
-            or_mid   = round((or_high + or_low) / 2, 2)
-            or_range = round(or_high - or_low, 2)
-            st.metric("OR High",  f"{or_high:.2f}", f"{curr_price - or_high:+.2f}")
-            st.metric("OR Mid",   f"{or_mid:.2f}",  f"{curr_price - or_mid:+.2f}")
-            st.metric("OR Low",   f"{or_low:.2f}",  f"{curr_price - or_low:+.2f}")
-            st.metric("OR Range", f"{or_range:.2f} pts")
-        else:
-            st.info("OR populates at 9:45 AM ET")
+            st.info("Prev week data unavailable.")
 
     with c4:
         st.subheader("Overnight / Globex")
