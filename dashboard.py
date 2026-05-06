@@ -69,13 +69,37 @@ h3 {
 /* ── Dividers ── */
 hr { border-color: #2a2a2a !important; }
 
-/* ── Refresh button ── */
-button[kind="secondary"], button {
-    font-family: 'IBM Plex Mono', monospace !important;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    border-color: #ff9900 !important;
-    color: #ff9900 !important;
+/* ── Refresh button — Windows 95 VB CommandButton ── */
+.stButton > button {
+    background:      #d4d0c8 !important;
+    color:           #000000 !important;
+    border:          none !important;
+    border-radius:   0px !important;
+    font-family:     'MS Sans Serif', 'Microsoft Sans Serif', Arial, sans-serif !important;
+    font-size:       11px !important;
+    font-weight:     400 !important;
+    text-transform:  none !important;
+    letter-spacing:  0 !important;
+    padding:         4px 16px 4px 14px !important;
+    box-shadow:
+        inset  1px  1px 0px #ffffff,
+        inset  2px  2px 0px #dfdfdf,
+        inset -1px -1px 0px #808080,
+        inset -2px -2px 0px #404040,
+        0 0 0 1px #000000 !important;
+}
+.stButton > button:hover {
+    background: #d4d0c8 !important;
+    color:      #000000 !important;
+}
+.stButton > button:active {
+    box-shadow:
+        inset -1px -1px 0px #ffffff,
+        inset -2px -2px 0px #dfdfdf,
+        inset  1px  1px 0px #808080,
+        inset  2px  2px 0px #404040,
+        0 0 0 1px #000000 !important;
+    padding: 5px 14px 3px 16px !important;
 }
 </style>
 """, unsafe_allow_html=True)
