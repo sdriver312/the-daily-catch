@@ -451,7 +451,9 @@ with main_col:
           </div>
           <div style="color:#aaa; margin-top:4px;">
             Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
-            Reference price: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
+            Ref: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
+            PDR: <b>{pd_range:.2f} pts</b> &nbsp;|&nbsp;
+            ATR14: <b>{atr_14:.2f} pts</b> &nbsp;|&nbsp;
             {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
           </div>
         </div>
@@ -515,7 +517,7 @@ with main_col:
     st.divider()
 
     # Levels Grid
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
 
     with c1:
         st.subheader("Camarilla (CAMS)")
@@ -549,24 +551,8 @@ with main_col:
         st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
         st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
         st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
-        st.divider()
-        st.metric("PD Range",    f"{pd_range:.2f} pts")
-        if atr_14:
-            st.metric("ATR (14D)", f"{atr_14:.2f} pts")
 
     with c3:
-        st.subheader("Prev Week")
-        if pw_high and pw_low:
-            pw_mid   = round((pw_high + pw_low) / 2, 2)
-            pw_range = round(pw_high - pw_low, 2)
-            st.metric("PWH — High",  f"{pw_high:.2f}", f"{curr_price - pw_high:+.2f}")
-            st.metric("PWM — Mid",   f"{pw_mid:.2f}",  f"{curr_price - pw_mid:+.2f}")
-            st.metric("PWL — Low",   f"{pw_low:.2f}",  f"{curr_price - pw_low:+.2f}")
-            st.metric("PW Range",    f"{pw_range:.2f} pts")
-        else:
-            st.info("Prev week data unavailable.")
-
-    with c4:
         st.subheader("Overnight / Globex")
         if globex_h and globex_l:
             glo_mid   = round((globex_h + globex_l) / 2, 2)
