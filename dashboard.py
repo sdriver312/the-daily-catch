@@ -17,7 +17,8 @@ st_autorefresh(interval=60_000, key="autorefresh")
 now_et = datetime.now(ET)
 st.markdown(
     f"<div style='color:#555; font-size:0.72rem; margin-bottom:-10px; font-family:\"IBM Plex Mono\",monospace; letter-spacing:0.05em;'>"
-    f"{now_et.strftime('%A %B %d, %Y  %H:%M ET')}</div>",
+    f"{now_et.strftime('%A %B %d, %Y  %H:%M ET')}"
+    f"<span style='color:#ff9900; margin-left:18px;'>{session_countdown()}</span></div>",
     unsafe_allow_html=True,
 )
 
@@ -176,6 +177,7 @@ def get_globex_levels(intraday, trade_date):
 
 # ── News Feed ────────────────────────────────────────────────────────────────
 import feedparser
+import requests as _requests
 
 NEWS_FEEDS = {
     "MarketWatch": "https://feeds.marketwatch.com/marketwatch/marketpulse/",
@@ -185,20 +187,23 @@ NEWS_FEEDS = {
 
 @st.cache_data(ttl=300)
 def fetch_news():
-    items = []
+    cutoff = datetime.now(ET) - timedelta(hours=24)
+    items  = []
     for source, url in NEWS_FEEDS.items():
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:5]:
+            for entry in feed.entries[:8]:
                 parsed = entry.get("published_parsed") or entry.get("updated_parsed")
                 if parsed:
                     pub = datetime(*parsed[:6], tzinfo=pytz.UTC).astimezone(ET)
                 else:
                     pub = datetime.now(ET)
+                if pub < cutoff:          # drop stale stories
+                    continue
                 items.append({
-                    "source": source,
-                    "title": entry.get("title", "").strip(),
-                    "link":  entry.get("link", "#"),
+                    "source":    source,
+                    "title":     entry.get("title", "").strip(),
+                    "link":      entry.get("link", "#"),
                     "published": pub,
                 })
         except Exception:
@@ -211,6 +216,57 @@ def time_ago(dt):
     if mins < 1:   return "just now"
     if mins < 60:  return f"{mins}m ago"
     return f"{mins // 60}h {mins % 60}m ago"
+
+@st.cache_data(ttl=3600)
+def fetch_economic_calendar(api_key):
+    if not api_key:
+        return []
+    try:
+        today = datetime.now(ET).date()
+        url   = (f"https://finnhub.io/api/v1/calendar/economic"
+                 f"?from={today}&to={today}&token={api_key}")
+        resp  = _requests.get(url, timeout=5)
+        events = resp.json().get("economicCalendar", [])
+        high_us = [
+            e for e in events
+            if e.get("country") == "US" and e.get("impact") == "high"
+        ]
+        # Convert UTC time to ET and sort
+        for e in high_us:
+            try:
+                utc_dt = datetime.strptime(e["time"], "%Y-%m-%d %H:%M:%S")
+                utc_dt = pytz.UTC.localize(utc_dt)
+                e["time_et"] = utc_dt.astimezone(ET).strftime("%I:%M %p")
+            except Exception:
+                e["time_et"] = e.get("time", "")
+        return sorted(high_us, key=lambda x: x.get("time", ""))
+    except Exception:
+        return []
+
+def session_countdown():
+    now     = datetime.now(ET)
+    weekday = now.weekday()
+    t       = now.time()
+    open_t  = dtime(9, 30)
+    close_t = dtime(16, 0)
+    if weekday >= 5:
+        days  = 7 - weekday
+        nxt   = ET.localize(datetime.combine(now.date() + timedelta(days=days), open_t))
+        diff  = nxt - now
+        h, m  = divmod(int(diff.total_seconds() / 60), 60)
+        return f"Next session in {diff.days}d {h}h {m}m"
+    elif t < open_t:
+        nxt  = ET.localize(datetime.combine(now.date(), open_t))
+        diff = nxt - now
+        h, m = divmod(int(diff.total_seconds() / 60), 60)
+        return f"NY opens in {h}h {m}m" if h else f"NY opens in {m}m"
+    elif t < close_t:
+        nxt  = ET.localize(datetime.combine(now.date(), close_t))
+        diff = nxt - now
+        h, m = divmod(int(diff.total_seconds() / 60), 60)
+        return f"Session closes in {h}h {m}m" if h else f"Session closes in {m}m"
+    else:
+        return "Session closed"
 
 
 def calc_atr(daily_df, period=14):
@@ -402,6 +458,31 @@ main_col, news_col = st.columns([4, 1])
 
 # ── News Rail (right) ─────────────────────────────────────────────────────────
 with news_col:
+    # Economic calendar
+    finnhub_key = st.secrets.get("FINNHUB_KEY", "")
+    econ_events = fetch_economic_calendar(finnhub_key)
+    if econ_events:
+        st.markdown(
+            "<div style='color:#ff9900;font-family:\"IBM Plex Mono\",monospace;"
+            "font-size:0.78rem;font-weight:700;letter-spacing:0.12em;"
+            "text-transform:uppercase;margin-bottom:8px;border-bottom:1px solid #2a2a2a;"
+            "padding-bottom:6px;'>Today's Events</div>",
+            unsafe_allow_html=True,
+        )
+        econ_html = ""
+        for e in econ_events:
+            econ_html += (
+                f'<div style="border-bottom:1px solid #1a1a1a;padding:5px 0;">'
+                f'<div style="color:#ff9900;font-size:0.65rem;">{e["time_et"]}</div>'
+                f'<div style="color:#e0e0e0;font-size:0.78rem;line-height:1.3;">{e["event"]}</div>'
+                f'</div>'
+            )
+        st.markdown(
+            f'<div style="font-family:\'IBM Plex Mono\',monospace;margin-bottom:14px;">'
+            f'{econ_html}</div>',
+            unsafe_allow_html=True,
+        )
+
     st.markdown(
         "<div style='color:#ff9900; font-family:\"IBM Plex Mono\",monospace; "
         "font-size:0.78rem; font-weight:700; letter-spacing:0.12em; "
