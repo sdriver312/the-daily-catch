@@ -213,6 +213,18 @@ def time_ago(dt):
     return f"{mins // 60}h {mins % 60}m ago"
 
 
+def calc_atr(daily_df, period=14):
+    """Average True Range over N daily periods."""
+    if len(daily_df) < period + 1:
+        return None
+    h  = daily_df["High"]
+    l  = daily_df["Low"]
+    pc = daily_df["Close"].shift(1)
+    tr = pd.concat([h - l, (h - pc).abs(), (l - pc).abs()], axis=1).max(axis=1)
+    atr = tr.rolling(period).mean().iloc[-1]
+    return round(float(atr), 2)
+
+
 # ── Bias Engine ───────────────────────────────────────────────────────────────
 def determine_bias(price, pd_high, pd_low, pd_close, cam_h3, cam_l3,
                    globex_h, globex_l):
@@ -356,7 +368,9 @@ week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
 pw_high = round(float(week_slice["High"].max()), 2)
 pw_low  = round(float(week_slice["Low"].min()),  2)
 
-camarilla = camarilla_pivots(pd_high, pd_low, pd_close)
+camarilla  = camarilla_pivots(pd_high, pd_low, pd_close)
+pd_range   = round(pd_high - pd_low, 2)
+atr_14     = calc_atr(daily)
 
 # After 4 PM the overnight session for tomorrow has begun
 globex_target = next_trading_day(trade_date) if rth_closed else trade_date
@@ -535,6 +549,10 @@ with main_col:
         st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
         st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
         st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
+        st.divider()
+        st.metric("PD Range",    f"{pd_range:.2f} pts")
+        if atr_14:
+            st.metric("ATR (14D)", f"{atr_14:.2f} pts")
 
     with c3:
         st.subheader("Prev Week")
