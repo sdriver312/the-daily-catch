@@ -131,7 +131,7 @@ def next_trading_day(d):
 # ── Data Fetching ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def fetch_daily(ticker):
-    df = yf.download(ticker, period="15d", interval="1d",
+    df = yf.download(ticker, period="30d", interval="1d",
                      progress=False, auto_adjust=True)
     return clean(df)
 
@@ -453,7 +453,7 @@ with main_col:
             Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
             Ref: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
             PDR: <b>{pd_range:.2f} pts</b> &nbsp;|&nbsp;
-            ATR14: <b>{atr_14:.2f} pts</b> &nbsp;|&nbsp;
+            ATR14: <b>{f"{atr_14:.2f} pts" if atr_14 else "loading..."}</b> &nbsp;|&nbsp;
             {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
           </div>
         </div>
