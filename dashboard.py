@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, time as dtime
@@ -148,6 +149,7 @@ def fetch_intraday(ticker):
 @st.cache_data(ttl=3600)
 def fetch_options_walls():
     try:
+        # QQQ spot price
         qqq_df = yf.download("QQQ", period="2d", interval="1d",
                               progress=False, auto_adjust=True)
         if isinstance(qqq_df.columns, pd.MultiIndex):
@@ -156,32 +158,82 @@ def fetch_options_walls():
             return None
         qqq_price = round(float(qqq_df["Close"].iloc[-1]), 2)
 
+        # Live risk-free rate from 13-week T-bill; fallback to 5.2%
+        try:
+            irx = yf.download("^IRX", period="5d", interval="1d",
+                               progress=False, auto_adjust=True)
+            if isinstance(irx.columns, pd.MultiIndex):
+                irx.columns = irx.columns.get_level_values(0)
+            r = float(irx["Close"].dropna().iloc[-1]) / 100
+        except Exception:
+            r = 0.052
+
         ticker = yf.Ticker("QQQ")
         expirations = ticker.options
         if not expirations:
             return None
 
-        chain = ticker.option_chain(expirations[0])
-        calls = chain.calls[["strike", "openInterest"]].dropna()
-        puts  = chain.puts[["strike", "openInterest"]].dropna()
+        # On expiration day gamma spikes artificially — skip to next expiry
+        today    = datetime.now(ET).date()
+        exp      = expirations[0]
+        exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
+        if exp_date <= today and len(expirations) > 1:
+            exp      = expirations[1]
+            exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
 
-        # Filter to strikes within 15% of ATM to avoid deep-OTM noise
+        T = max((exp_date - today).days, 1) / 365.0
+
+        chain = ticker.option_chain(exp)
+        calls = chain.calls[["strike", "openInterest", "impliedVolatility"]].dropna()
+        puts  = chain.puts[["strike", "openInterest", "impliedVolatility"]].dropna()
+
+        # Keep only strikes with real IV and within ±15% of ATM
+        calls = calls[calls["impliedVolatility"] > 0].copy()
+        puts  = puts[puts["impliedVolatility"]  > 0].copy()
         lo, hi = qqq_price * 0.85, qqq_price * 1.15
         calls = calls[(calls["strike"] >= lo) & (calls["strike"] <= hi)]
-        puts  = puts[(puts["strike"] >= lo)  & (puts["strike"] <= hi)]
-
+        puts  = puts[(puts["strike"]  >= lo) & (puts["strike"]  <= hi)]
         if calls.empty or puts.empty:
             return None
 
-        cw_idx = calls["openInterest"].idxmax()
-        pw_idx = puts["openInterest"].idxmax()
+        # Black-Scholes gamma — identical formula for calls and puts
+        def bs_gamma(K, iv):
+            if iv <= 0 or T <= 0:
+                return 0.0
+            d1 = (np.log(qqq_price / K) + (r + 0.5 * iv ** 2) * T) / (iv * np.sqrt(T))
+            return float(np.exp(-0.5 * d1 ** 2) / (np.sqrt(2 * np.pi) * qqq_price * iv * np.sqrt(T)))
+
+        calls["gamma"] = calls.apply(lambda row: bs_gamma(row["strike"], row["impliedVolatility"]), axis=1)
+        puts["gamma"]  = puts.apply(lambda row:  bs_gamma(row["strike"], row["impliedVolatility"]), axis=1)
+
+        # GEX = gamma × OI × 100 shares/contract
+        calls["gex"] = calls["gamma"] * calls["openInterest"] * 100
+        puts["gex"]  = puts["gamma"]  * puts["openInterest"]  * 100
+
+        # Wall = strike with highest GEX on each side
+        cw_idx   = calls["gex"].idxmax()
+        pw_idx   = puts["gex"].idxmax()
+        call_row = calls.loc[cw_idx]
+        put_row  = puts.loc[pw_idx]
+
+        # Net GEX: positive = dealers net long gamma (stabilizing)
+        #          negative = dealers net short gamma (amplifying)
+        net_gex = float(calls["gex"].sum() - puts["gex"].sum())
+
         return {
-            "call_strike": float(calls.loc[cw_idx, "strike"]),
-            "call_oi":     int(calls.loc[cw_idx, "openInterest"]),
-            "put_strike":  float(puts.loc[pw_idx, "strike"]),
-            "put_oi":      int(puts.loc[pw_idx, "openInterest"]),
-            "expiry":      expirations[0],
+            "call_strike": float(call_row["strike"]),
+            "call_oi":     int(call_row["openInterest"]),
+            "call_gex":    float(call_row["gex"]),
+            "call_iv":     round(float(call_row["impliedVolatility"]) * 100, 1),
+            "put_strike":  float(put_row["strike"]),
+            "put_oi":      int(put_row["openInterest"]),
+            "put_gex":     float(put_row["gex"]),
+            "put_iv":      round(float(put_row["impliedVolatility"]) * 100, 1),
+            "net_gex":     net_gex,
+            "expiry":      exp,
             "qqq_price":   qqq_price,
+            "r":           round(r * 100, 2),
+            "T_days":      (exp_date - today).days,
         }
     except Exception:
         return None
@@ -616,7 +668,7 @@ with main_col:
         "Bias is informational — not financial advice."
     )
 
-# ── Options Walls ─────────────────────────────────────────────────────────────
+# ── Options Walls (GEX-based) ─────────────────────────────────────────────────
 st.divider()
 st.markdown(
     "<div style='color:#ff9900; font-family:\"IBM Plex Mono\",monospace; "
@@ -624,7 +676,7 @@ st.markdown(
     "text-transform:uppercase; margin-bottom:12px;'>"
     "Options Walls "
     "<span style='color:#444; font-size:0.62rem; font-weight:400; letter-spacing:0.05em;'>"
-    "QQQ PROXY · HIGHEST OI · PRIOR CLOSE</span></div>",
+    "QQQ PROXY · GAMMA EXPOSURE · PRIOR CLOSE</span></div>",
     unsafe_allow_html=True,
 )
 
@@ -635,8 +687,19 @@ if walls:
     put_wall_nq  = int(round(walls["put_strike"]  * ratio / 25) * 25)
     call_dist    = curr_price - call_wall_nq
     put_dist     = curr_price - put_wall_nq
+    net_gex      = walls["net_gex"]
 
-    wc1, wc2 = st.columns(2)
+    # GEX regime
+    if net_gex >= 0:
+        regime_color = "#ff9900"
+        regime_label = "PINNED"
+        regime_desc  = "Dealers absorb moves. Expect chop and mean-reversion between walls."
+    else:
+        regime_color = "#64b5f6"
+        regime_label = "TRENDING"
+        regime_desc  = "Dealers amplify moves. Expect momentum runs — walls may not hold."
+
+    wc1, wc2, wc3 = st.columns(3)
     with wc1:
         st.markdown(
             f"<div style='background:#00c85315; border-left:6px solid #00c853; "
@@ -647,9 +710,9 @@ if walls:
             f"<div style='color:#f0f0f0; font-size:2.4rem; font-weight:700; "
             f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:2px;'>"
             f"{call_wall_nq:,}</div>"
-            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px;'>"
-            f"{call_dist:+.0f} pts from price &nbsp;·&nbsp; "
-            f"QQQ ${walls['call_strike']:.0f} &nbsp;·&nbsp; "
+            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px; line-height:1.6;'>"
+            f"{call_dist:+.0f} pts from price<br>"
+            f"QQQ ${walls['call_strike']:.0f} &nbsp;·&nbsp; IV {walls['call_iv']:.1f}%<br>"
             f"OI {walls['call_oi']:,} contracts</div>"
             f"</div>",
             unsafe_allow_html=True,
@@ -664,18 +727,33 @@ if walls:
             f"<div style='color:#f0f0f0; font-size:2.4rem; font-weight:700; "
             f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:2px;'>"
             f"{put_wall_nq:,}</div>"
-            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px;'>"
-            f"{put_dist:+.0f} pts from price &nbsp;·&nbsp; "
-            f"QQQ ${walls['put_strike']:.0f} &nbsp;·&nbsp; "
+            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px; line-height:1.6;'>"
+            f"{put_dist:+.0f} pts from price<br>"
+            f"QQQ ${walls['put_strike']:.0f} &nbsp;·&nbsp; IV {walls['put_iv']:.1f}%<br>"
             f"OI {walls['put_oi']:,} contracts</div>"
             f"</div>",
             unsafe_allow_html=True,
         )
+    with wc3:
+        st.markdown(
+            f"<div style='background:{regime_color}15; border-left:6px solid {regime_color}; "
+            f"padding:16px 20px; border-radius:8px;'>"
+            f"<div style='color:{regime_color}; font-size:0.72rem; font-weight:700; "
+            f"letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;'>"
+            f"GEX Regime</div>"
+            f"<div style='color:#f0f0f0; font-size:2.4rem; font-weight:700; "
+            f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:2px;'>"
+            f"{regime_label}</div>"
+            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px; line-height:1.6;'>"
+            f"Net GEX: <b style='color:{regime_color}'>{net_gex:+,.0f}</b><br>"
+            f"{regime_desc}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
     st.caption(
-        f"QQQ expiry: {walls['expiry']}  ·  "
-        f"Scale: {ratio:.2f}x (NQ ÷ QQQ)  ·  "
-        f"OI updates overnight — levels are stable intraday  ·  "
-        f"Not financial advice"
+        f"QQQ expiry: {walls['expiry']} ({walls['T_days']}d)  ·  "
+        f"Scale: {ratio:.2f}x  ·  Risk-free: {walls['r']:.2f}%  ·  "
+        f"GEX = gamma × OI × 100  ·  OI as of prior close  ·  Not financial advice"
     )
 else:
     st.caption("Options wall data unavailable — markets may be closed or QQQ options feed is down.")
