@@ -311,6 +311,47 @@ LOGO_SVG = """
         stroke="rgba(255,255,255,0.22)" stroke-width="1.5" stroke-dasharray="5,3"/>
 </svg>"""
 
+BULL_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="{w}" height="{w}"'
+    ' style="flex-shrink:0;filter:drop-shadow(0 0 10px rgba(0,200,83,0.4))">'
+    '<path d="M24 32 Q13 6 27 16" stroke="#a07828" stroke-width="5" fill="none" stroke-linecap="round"/>'
+    '<path d="M56 32 Q67 6 53 16" stroke="#a07828" stroke-width="5" fill="none" stroke-linecap="round"/>'
+    '<circle cx="40" cy="47" r="26" fill="#c8860a"/>'
+    '<ellipse cx="40" cy="59" rx="13" ry="9" fill="#b07320"/>'
+    '<circle cx="36" cy="60" r="2" fill="#7a4e10"/>'
+    '<circle cx="44" cy="60" r="2" fill="#7a4e10"/>'
+    '<circle cx="30" cy="42" r="5" fill="white"/>'
+    '<circle cx="50" cy="42" r="5" fill="white"/>'
+    '<circle cx="31" cy="42" r="3" fill="#111"/>'
+    '<circle cx="51" cy="42" r="3" fill="#111"/>'
+    '<circle cx="32" cy="41" r="1" fill="white"/>'
+    '<circle cx="52" cy="41" r="1" fill="white"/>'
+    '<path d="M33 53 Q40 58 47 53" stroke="#7a4e10" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+    '</svg>'
+)
+
+BEAR_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="{w}" height="{w}"'
+    ' style="flex-shrink:0;filter:drop-shadow(0 0 10px rgba(213,0,0,0.4))">'
+    '<circle cx="18" cy="24" r="12" fill="#3e1a06"/>'
+    '<circle cx="62" cy="24" r="12" fill="#3e1a06"/>'
+    '<circle cx="18" cy="24" r="6" fill="#7a4e2a"/>'
+    '<circle cx="62" cy="24" r="6" fill="#7a4e2a"/>'
+    '<circle cx="40" cy="47" r="26" fill="#3e1a06"/>'
+    '<ellipse cx="40" cy="58" rx="13" ry="9" fill="#7a4e2a"/>'
+    '<ellipse cx="40" cy="52" rx="5" ry="3.5" fill="#1a0800"/>'
+    '<circle cx="29" cy="42" r="5" fill="white"/>'
+    '<circle cx="51" cy="42" r="5" fill="white"/>'
+    '<circle cx="30" cy="42" r="3" fill="#111"/>'
+    '<circle cx="52" cy="42" r="3" fill="#111"/>'
+    '<circle cx="31" cy="41" r="1" fill="white"/>'
+    '<circle cx="53" cy="41" r="1" fill="white"/>'
+    '<path d="M24 36 Q29 31 34 36" stroke="#1a0800" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+    '<path d="M46 36 Q51 31 56 36" stroke="#1a0800" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+    '<path d="M33 61 Q40 57 47 61" stroke="#1a0800" stroke-width="2.5" fill="none" stroke-linecap="round"/>'
+    '</svg>'
+)
+
 # Title row — placeholder filled with bias color after data loads
 title_col, spacer_col, btn_col = st.columns([7, 2, 1])
 with title_col:
@@ -447,20 +488,35 @@ with news_col:
 # ── Main Content (left) ───────────────────────────────────────────────────────
 with main_col:
     # Bias Banner
+    if bias == "BULLISH":
+        animal = BULL_SVG.format(w=82)
+    elif bias == "LEANING BULLISH":
+        animal = BULL_SVG.format(w=62)
+    elif bias == "BEARISH":
+        animal = BEAR_SVG.format(w=82)
+    elif bias == "LEANING BEARISH":
+        animal = BEAR_SVG.format(w=62)
+    else:
+        animal = ""
+
     st.markdown(
         f"""
         <div style="background:{bias_color}22; border-left:6px solid {bias_color};
-                    padding:18px 24px; border-radius:8px; margin-bottom:8px;">
-          <div style="color:{bias_color}; font-size:2rem; font-weight:700; letter-spacing:2px;">
-            NY SESSION BIAS: {bias}
+                    padding:18px 24px; border-radius:8px; margin-bottom:8px;
+                    display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="color:{bias_color}; font-size:2rem; font-weight:700; letter-spacing:2px;">
+              NY SESSION BIAS: {bias}
+            </div>
+            <div style="color:#aaa; margin-top:4px;">
+              Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
+              Ref: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
+              PDR: <b>{pd_range:.2f} pts</b> &nbsp;|&nbsp;
+              ATR14: <b>{f"{atr_14:.2f} pts" if atr_14 else "loading..."}</b> &nbsp;|&nbsp;
+              {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
+            </div>
           </div>
-          <div style="color:#aaa; margin-top:4px;">
-            Score: <b style="color:{bias_color}">{score:+d}</b> &nbsp;|&nbsp;
-            Ref: <b>{curr_price:.2f}</b> &nbsp;|&nbsp;
-            PDR: <b>{pd_range:.2f} pts</b> &nbsp;|&nbsp;
-            ATR14: <b>{f"{atr_14:.2f} pts" if atr_14 else "loading..."}</b> &nbsp;|&nbsp;
-            {"NEXT SESSION — " + str(next_trading_day(trade_date)) if rth_closed else "SESSION — " + str(trade_date)}
-          </div>
+          {animal}
         </div>
         """,
         unsafe_allow_html=True,
