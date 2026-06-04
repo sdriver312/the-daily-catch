@@ -147,6 +147,18 @@ def fetch_intraday(ticker):
     return df
 
 @st.cache_data(ttl=3600)
+def fetch_weekly(ticker):
+    df = yf.download(ticker, period="2mo", interval="1wk",
+                     progress=False, auto_adjust=True)
+    return clean(df)
+
+@st.cache_data(ttl=3600)
+def fetch_monthly(ticker):
+    df = yf.download(ticker, period="13mo", interval="1mo",
+                     progress=False, auto_adjust=True)
+    return clean(df)
+
+@st.cache_data(ttl=3600)
 def fetch_options_walls():
     try:
         # QQQ spot price
@@ -419,6 +431,8 @@ with btn_col:
 with st.spinner("Fetching market data..."):
     daily    = fetch_daily(TICKER)
     intraday = fetch_intraday(TICKER)
+    weekly   = fetch_weekly(TICKER)
+    monthly  = fetch_monthly(TICKER)
 
 if len(daily) < 3:
     st.error("Not enough data returned. Markets may be closed or the ticker is unavailable.")
@@ -460,10 +474,33 @@ if not rth_closed:
     pd_low   = round(float(prev["Low"]),   2)
     pd_close = round(float(prev["Close"]), 2)
 
-# Weekly H/L — full Globex daily bars
-week_slice = daily.iloc[max(0, prev_idx - 4): prev_idx + 1]
-pw_high = round(float(week_slice["High"].max()), 2)
-pw_low  = round(float(week_slice["Low"].min()),  2)
+# Previous week OHLC — proper weekly bars, not rolling daily window
+week_start   = today - timedelta(days=today.weekday())  # Monday of current week
+weekly_dates = [d.date() if hasattr(d, "date") else d for d in weekly.index]
+completed_wk = [i for i, d in enumerate(weekly_dates) if d < week_start]
+if completed_wk:
+    _pw      = weekly.iloc[completed_wk[-1]]
+    pw_date  = weekly_dates[completed_wk[-1]]
+    pw_open  = round(float(_pw["Open"]),  2)
+    pw_high  = round(float(_pw["High"]),  2)
+    pw_low   = round(float(_pw["Low"]),   2)
+    pw_close = round(float(_pw["Close"]), 2)
+else:
+    pw_date = pw_open = pw_high = pw_low = pw_close = None
+
+# Previous month OHLC — proper monthly bars
+month_start   = today.replace(day=1)
+monthly_dates = [d.date() if hasattr(d, "date") else d for d in monthly.index]
+completed_mo  = [i for i, d in enumerate(monthly_dates) if d < month_start]
+if completed_mo:
+    _pm      = monthly.iloc[completed_mo[-1]]
+    pm_date  = monthly_dates[completed_mo[-1]]
+    pm_open  = round(float(_pm["Open"]),  2)
+    pm_high  = round(float(_pm["High"]),  2)
+    pm_low   = round(float(_pm["Low"]),   2)
+    pm_close = round(float(_pm["Close"]), 2)
+else:
+    pm_date = pm_open = pm_high = pm_low = pm_close = None
 
 camarilla  = camarilla_pivots(pd_high, pd_low, pd_close)
 pd_range   = round(pd_high - pd_low, 2)
@@ -615,7 +652,7 @@ with main_col:
     st.divider()
 
     # Levels Grid
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         st.subheader("Camarilla (CAMS)")
@@ -661,6 +698,27 @@ with main_col:
             st.metric("Globex Range", f"{glo_range:.2f} pts")
         else:
             st.info("No Globex data yet.\n(Pre-market or weekend)")
+
+    with c4:
+        if pw_high:
+            st.subheader(f"Prev Week  (w/c {pw_date.strftime('%b %d')})")
+            st.metric("PWH — High",  f"{pw_high:.2f}",  f"{curr_price - pw_high:+.2f}")
+            st.metric("PWO — Open",  f"{pw_open:.2f}",  f"{curr_price - pw_open:+.2f}")
+            st.metric("PWC — Close", f"{pw_close:.2f}", f"{curr_price - pw_close:+.2f}")
+            st.metric("PWL — Low",   f"{pw_low:.2f}",   f"{curr_price - pw_low:+.2f}")
+        else:
+            st.subheader("Prev Week")
+            st.info("No weekly data yet.")
+        st.divider()
+        if pm_high:
+            st.subheader(f"Prev Month  ({pm_date.strftime('%b %Y')})")
+            st.metric("PMH — High",  f"{pm_high:.2f}",  f"{curr_price - pm_high:+.2f}")
+            st.metric("PMO — Open",  f"{pm_open:.2f}",  f"{curr_price - pm_open:+.2f}")
+            st.metric("PMC — Close", f"{pm_close:.2f}", f"{curr_price - pm_close:+.2f}")
+            st.metric("PML — Low",   f"{pm_low:.2f}",   f"{curr_price - pm_low:+.2f}")
+        else:
+            st.subheader("Prev Month")
+            st.info("No monthly data yet.")
 
     st.caption(
         "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
