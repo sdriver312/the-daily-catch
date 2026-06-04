@@ -145,6 +145,47 @@ def fetch_intraday(ticker):
     df.index = df.index.tz_convert(ET)
     return df
 
+@st.cache_data(ttl=3600)
+def fetch_options_walls():
+    try:
+        qqq_df = yf.download("QQQ", period="2d", interval="1d",
+                              progress=False, auto_adjust=True)
+        if isinstance(qqq_df.columns, pd.MultiIndex):
+            qqq_df.columns = qqq_df.columns.get_level_values(0)
+        if qqq_df.empty:
+            return None
+        qqq_price = round(float(qqq_df["Close"].iloc[-1]), 2)
+
+        ticker = yf.Ticker("QQQ")
+        expirations = ticker.options
+        if not expirations:
+            return None
+
+        chain = ticker.option_chain(expirations[0])
+        calls = chain.calls[["strike", "openInterest"]].dropna()
+        puts  = chain.puts[["strike", "openInterest"]].dropna()
+
+        # Filter to strikes within 15% of ATM to avoid deep-OTM noise
+        lo, hi = qqq_price * 0.85, qqq_price * 1.15
+        calls = calls[(calls["strike"] >= lo) & (calls["strike"] <= hi)]
+        puts  = puts[(puts["strike"] >= lo)  & (puts["strike"] <= hi)]
+
+        if calls.empty or puts.empty:
+            return None
+
+        cw_idx = calls["openInterest"].idxmax()
+        pw_idx = puts["openInterest"].idxmax()
+        return {
+            "call_strike": float(calls.loc[cw_idx, "strike"]),
+            "call_oi":     int(calls.loc[cw_idx, "openInterest"]),
+            "put_strike":  float(puts.loc[pw_idx, "strike"]),
+            "put_oi":      int(puts.loc[pw_idx, "openInterest"]),
+            "expiry":      expirations[0],
+            "qqq_price":   qqq_price,
+        }
+    except Exception:
+        return None
+
 # ── Level Calculations ────────────────────────────────────────────────────────
 def camarilla_pivots(h, l, c):
     r = h - l
@@ -574,3 +615,67 @@ with main_col:
         "Camarilla R5/S5 = Close ± (High − Low).  "
         "Bias is informational — not financial advice."
     )
+
+# ── Options Walls ─────────────────────────────────────────────────────────────
+st.divider()
+st.markdown(
+    "<div style='color:#ff9900; font-family:\"IBM Plex Mono\",monospace; "
+    "font-size:0.85rem; font-weight:700; letter-spacing:0.12em; "
+    "text-transform:uppercase; margin-bottom:12px;'>"
+    "Options Walls "
+    "<span style='color:#444; font-size:0.62rem; font-weight:400; letter-spacing:0.05em;'>"
+    "QQQ PROXY · HIGHEST OI · PRIOR CLOSE</span></div>",
+    unsafe_allow_html=True,
+)
+
+walls = fetch_options_walls()
+if walls:
+    ratio        = curr_price / walls["qqq_price"]
+    call_wall_nq = int(round(walls["call_strike"] * ratio / 25) * 25)
+    put_wall_nq  = int(round(walls["put_strike"]  * ratio / 25) * 25)
+    call_dist    = curr_price - call_wall_nq
+    put_dist     = curr_price - put_wall_nq
+
+    wc1, wc2 = st.columns(2)
+    with wc1:
+        st.markdown(
+            f"<div style='background:#00c85315; border-left:6px solid #00c853; "
+            f"padding:16px 20px; border-radius:8px;'>"
+            f"<div style='color:#00c853; font-size:0.72rem; font-weight:700; "
+            f"letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;'>"
+            f"CALL WALL &nbsp;·&nbsp; Resistance</div>"
+            f"<div style='color:#f0f0f0; font-size:2.4rem; font-weight:700; "
+            f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:2px;'>"
+            f"{call_wall_nq:,}</div>"
+            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px;'>"
+            f"{call_dist:+.0f} pts from price &nbsp;·&nbsp; "
+            f"QQQ ${walls['call_strike']:.0f} &nbsp;·&nbsp; "
+            f"OI {walls['call_oi']:,} contracts</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with wc2:
+        st.markdown(
+            f"<div style='background:#d5000015; border-left:6px solid #d50000; "
+            f"padding:16px 20px; border-radius:8px;'>"
+            f"<div style='color:#d50000; font-size:0.72rem; font-weight:700; "
+            f"letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px;'>"
+            f"PUT WALL &nbsp;·&nbsp; Support</div>"
+            f"<div style='color:#f0f0f0; font-size:2.4rem; font-weight:700; "
+            f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:2px;'>"
+            f"{put_wall_nq:,}</div>"
+            f"<div style='color:#aaa; font-size:0.82rem; margin-top:6px;'>"
+            f"{put_dist:+.0f} pts from price &nbsp;·&nbsp; "
+            f"QQQ ${walls['put_strike']:.0f} &nbsp;·&nbsp; "
+            f"OI {walls['put_oi']:,} contracts</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        f"QQQ expiry: {walls['expiry']}  ·  "
+        f"Scale: {ratio:.2f}x (NQ ÷ QQQ)  ·  "
+        f"OI updates overnight — levels are stable intraday  ·  "
+        f"Not financial advice"
+    )
+else:
+    st.caption("Options wall data unavailable — markets may be closed or QQQ options feed is down.")
