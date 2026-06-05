@@ -164,8 +164,10 @@ def camarilla_pivots(h, l, c):
 
 def floor_pivots(h, l, c):
     pp = round((h + l + c) / 3, 2)
-    r  = round(h - l, 2)
+    r  = h - l
     return {
+        "R5": round(pp + 4 * r, 2),
+        "R4": round(pp + 3 * r, 2),
         "R3": round(pp + 2 * r, 2),
         "R2": round(pp + r,     2),
         "R1": round(2 * pp - l, 2),
@@ -173,6 +175,8 @@ def floor_pivots(h, l, c):
         "S1": round(2 * pp - h, 2),
         "S2": round(pp - r,     2),
         "S3": round(pp - 2 * r, 2),
+        "S4": round(pp - 3 * r, 2),
+        "S5": round(pp - 4 * r, 2),
     }
 
 def get_globex_levels(intraday, trade_date):
@@ -621,18 +625,22 @@ with main_col:
         st.markdown(cam_html, unsafe_allow_html=True)
 
     with c2:
-        st.subheader(f"Floor Pivots  ({pd_date})")
+        st.subheader(f"Pivots  ({pd_date})")
         fp_colors = {
-            "R3": "#00e676",
-            "R2": "#69f0ae",
+            "R5": "#00e676",
+            "R4": "#48f595",
+            "R3": "#69f0ae",
+            "R2": "#a5f3c8",
             "R1": "#b9f6ca",
             "PP": "#ff9900",
             "S1": "#ffab91",
-            "S2": "#ff7043",
-            "S3": "#d50000",
+            "S2": "#ff8a65",
+            "S3": "#ff7043",
+            "S4": "#e64a19",
+            "S5": "#d50000",
         }
         fp_html = ""
-        for name in ["R3", "R2", "R1", "PP", "S1", "S2", "S3"]:
+        for name in ["R5", "R4", "R3", "R2", "R1", "PP", "S1", "S2", "S3", "S4", "S5"]:
             val   = floor_piv[name]
             delta = curr_price - val
             color = fp_colors[name]
