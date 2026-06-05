@@ -162,23 +162,6 @@ def camarilla_pivots(h, l, c):
         "S5": round(c - r, 2),   # TradingView: Close − (High − Low)
     }
 
-def floor_pivots(h, l, c):
-    pp = round((h + l + c) / 3, 2)
-    r  = h - l
-    return {
-        "R5": round(pp + 4 * r, 2),
-        "R4": round(pp + 3 * r, 2),
-        "R3": round(pp + 2 * r, 2),
-        "R2": round(pp + r,     2),
-        "R1": round(2 * pp - l, 2),
-        "PP": pp,
-        "S1": round(2 * pp - h, 2),
-        "S2": round(pp - r,     2),
-        "S3": round(pp - 2 * r, 2),
-        "S4": round(pp - 3 * r, 2),
-        "S5": round(pp - 4 * r, 2),
-    }
-
 def get_globex_levels(intraday, trade_date):
     p = prev_trading_day(trade_date)
     mask = (
@@ -431,7 +414,6 @@ pw_high = round(float(week_slice["High"].max()), 2)
 pw_low  = round(float(week_slice["Low"].min()),  2)
 
 camarilla  = camarilla_pivots(pd_high, pd_low, pd_close)
-floor_piv  = floor_pivots(pd_high, pd_low, pd_close)
 pd_range   = round(pd_high - pd_low, 2)
 atr_14     = calc_atr(daily)
 
@@ -596,7 +578,7 @@ with main_col:
     st.divider()
 
     # Levels Grid
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
 
     with c1:
         st.subheader("Camarilla (CAMS)")
@@ -625,44 +607,13 @@ with main_col:
         st.markdown(cam_html, unsafe_allow_html=True)
 
     with c2:
-        st.subheader(f"Pivots  ({pd_date})")
-        fp_colors = {
-            "R5": "#00e676",
-            "R4": "#48f595",
-            "R3": "#69f0ae",
-            "R2": "#a5f3c8",
-            "R1": "#b9f6ca",
-            "PP": "#ff9900",
-            "S1": "#ffab91",
-            "S2": "#ff8a65",
-            "S3": "#ff7043",
-            "S4": "#e64a19",
-            "S5": "#d50000",
-        }
-        fp_html = ""
-        for name in ["R5", "R4", "R3", "R2", "R1", "PP", "S1", "S2", "S3", "S4", "S5"]:
-            val   = floor_piv[name]
-            delta = curr_price - val
-            color = fp_colors[name]
-            arrow = "▲" if delta > 0 else "▼"
-            fp_html += (
-                f"<div style='background:{color}18; border-left:4px solid {color};"
-                f"padding:6px 12px; margin:3px 0; border-radius:5px;'>"
-                f"<span style='color:{color}; font-weight:700; font-size:1.4rem'>{name}</span>"
-                f"<span style='color:#f0f0f0; float:right; font-size:1.4rem; font-weight:600'>{val:.2f}</span>"
-                f"<br><span style='color:#aaa; font-size:0.88rem'>{arrow} {delta:+.2f} from price</span>"
-                f"</div>"
-            )
-        st.markdown(fp_html, unsafe_allow_html=True)
-
-    with c3:
         st.subheader(f"Prev Day  ({pd_date})")
         st.metric("PDH — High",  f"{pd_high:.2f}",  f"{curr_price - pd_high:+.2f}")
         st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
         st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
         st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
 
-    with c4:
+    with c3:
         st.subheader("Overnight / Globex")
         if globex_h and globex_l:
             glo_mid   = round((globex_h + globex_l) / 2, 2)
