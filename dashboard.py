@@ -621,25 +621,6 @@ with main_col:
         st.markdown(cam_html, unsafe_allow_html=True)
 
     with c2:
-        st.subheader(f"Prev Day  ({pd_date})")
-        st.metric("PDH — High",  f"{pd_high:.2f}",  f"{curr_price - pd_high:+.2f}")
-        st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
-        st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
-        st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
-
-    with c3:
-        st.subheader("Overnight / Globex")
-        if globex_h and globex_l:
-            glo_mid   = round((globex_h + globex_l) / 2, 2)
-            glo_range = round(globex_h - globex_l, 2)
-            st.metric("Globex High",  f"{globex_h:.2f}", f"{curr_price - globex_h:+.2f}")
-            st.metric("Globex Mid",   f"{glo_mid:.2f}",  f"{curr_price - glo_mid:+.2f}")
-            st.metric("Globex Low",   f"{globex_l:.2f}", f"{curr_price - globex_l:+.2f}")
-            st.metric("Globex Range", f"{glo_range:.2f} pts")
-        else:
-            st.info("No Globex data yet.\n(Pre-market or weekend)")
-
-    with c4:
         st.subheader(f"Floor Pivots  ({pd_date})")
         fp_colors = {
             "R3": "#00e676",
@@ -665,6 +646,25 @@ with main_col:
                 f"</div>"
             )
         st.markdown(fp_html, unsafe_allow_html=True)
+
+    with c3:
+        st.subheader(f"Prev Day  ({pd_date})")
+        st.metric("PDH — High",  f"{pd_high:.2f}",  f"{curr_price - pd_high:+.2f}")
+        st.metric("PDO — Open",  f"{pd_open:.2f}",  f"{curr_price - pd_open:+.2f}")
+        st.metric("PDC — Close", f"{pd_close:.2f}", f"{curr_price - pd_close:+.2f}")
+        st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
+
+    with c4:
+        st.subheader("Overnight / Globex")
+        if globex_h and globex_l:
+            glo_mid   = round((globex_h + globex_l) / 2, 2)
+            glo_range = round(globex_h - globex_l, 2)
+            st.metric("Globex High",  f"{globex_h:.2f}", f"{curr_price - globex_h:+.2f}")
+            st.metric("Globex Mid",   f"{glo_mid:.2f}",  f"{curr_price - glo_mid:+.2f}")
+            st.metric("Globex Low",   f"{globex_l:.2f}", f"{curr_price - globex_l:+.2f}")
+            st.metric("Globex Range", f"{glo_range:.2f} pts")
+        else:
+            st.info("No Globex data yet.\n(Pre-market or weekend)")
 
     st.caption(
         "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
