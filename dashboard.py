@@ -9,6 +9,8 @@ from streamlit_autorefresh import st_autorefresh
 # ── Config ────────────────────────────────────────────────────────────────────
 TICKER = "NQ=F"
 ET = pytz.timezone("America/New_York")
+PRICE_LIMIT_PCT = 0.07   # CME overnight limit for NQ/MNQ — update if CME changes it
+TOPSTEP_BUFFER  = 0.02   # TopStep's 2% buffer inside the CME limit
 
 st.set_page_config(page_title="MNQ Daily Dashboard", layout="wide")
 
@@ -624,6 +626,40 @@ with main_col:
             st.metric("Globex Range", f"{glo_range:.2f} pts")
         else:
             st.info("No Globex data yet.\n(Pre-market or weekend)")
+
+    # TopStep Price Limit Strip
+    effective_pct = PRICE_LIMIT_PCT - TOPSTEP_BUFFER
+    stop_above    = round(pd_close * (1 + effective_pct), 2)
+    stop_below    = round(pd_close * (1 - effective_pct), 2)
+    dist_above    = stop_above - curr_price
+    dist_below    = curr_price - stop_below
+    st.markdown(
+        f"<div style='background:#ff990012; border:1px solid #ff990035; "
+        f"padding:14px 22px; border-radius:8px; margin-top:10px; "
+        f"display:flex; align-items:center; gap:48px; flex-wrap:wrap;'>"
+        f"<div style='color:#ff9900; font-size:0.72rem; font-weight:700; "
+        f"letter-spacing:0.1em; text-transform:uppercase; white-space:nowrap;'>"
+        f"TopStep Limits"
+        f"<br><span style='color:#444; font-weight:400; font-size:0.62rem;'>"
+        f"{int(PRICE_LIMIT_PCT*100)}% CME &minus; {int(TOPSTEP_BUFFER*100)}% buffer "
+        f"= &plusmn;{int(effective_pct*100)}% from settlement</span></div>"
+        f"<div>"
+        f"<div style='color:#00c853; font-size:0.65rem; font-weight:700; "
+        f"letter-spacing:0.1em; text-transform:uppercase;'>Stop Above</div>"
+        f"<div style='color:#f0f0f0; font-size:1.6rem; font-weight:700; "
+        f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:1px;'>{stop_above:,.2f}</div>"
+        f"<div style='color:#aaa; font-size:0.78rem;'>{dist_above:+.0f} pts from price</div>"
+        f"</div>"
+        f"<div>"
+        f"<div style='color:#d50000; font-size:0.65rem; font-weight:700; "
+        f"letter-spacing:0.1em; text-transform:uppercase;'>Stop Below</div>"
+        f"<div style='color:#f0f0f0; font-size:1.6rem; font-weight:700; "
+        f"font-family:\"IBM Plex Mono\",monospace; letter-spacing:1px;'>{stop_below:,.2f}</div>"
+        f"<div style='color:#aaa; font-size:0.78rem;'>{dist_below:+.0f} pts from price</div>"
+        f"</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
     st.caption(
         "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
