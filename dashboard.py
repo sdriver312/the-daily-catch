@@ -175,6 +175,27 @@ def get_globex_levels(intraday, trade_date):
         return None, None
     return round(float(g["High"].max()), 2), round(float(g["Low"].min()), 2)
 
+def get_asia_levels(intraday, trade_date):
+    p = prev_trading_day(trade_date)
+    mask = (
+        ((intraday.index.date == p) & (intraday.index.time >= dtime(18, 0))) |
+        ((intraday.index.date == trade_date) & (intraday.index.time < dtime(2, 0)))
+    )
+    g = intraday[mask]
+    if g.empty:
+        return None, None
+    return round(float(g["High"].max()), 2), round(float(g["Low"].min()), 2)
+
+def get_london_levels(intraday, trade_date):
+    mask = (
+        (intraday.index.date == trade_date) &
+        (intraday.index.time >= dtime(2, 0)) & (intraday.index.time < dtime(9, 30))
+    )
+    g = intraday[mask]
+    if g.empty:
+        return None, None
+    return round(float(g["High"].max()), 2), round(float(g["Low"].min()), 2)
+
 
 # ── News Feed ────────────────────────────────────────────────────────────────
 import feedparser
@@ -422,6 +443,8 @@ atr_14     = calc_atr(daily)
 # After 4 PM the overnight session for tomorrow has begun
 globex_target = next_trading_day(trade_date) if rth_closed else trade_date
 globex_h, globex_l = get_globex_levels(intraday, globex_target)
+asia_h,   asia_l   = get_asia_levels(intraday, globex_target)
+london_h, london_l = get_london_levels(intraday, globex_target)
 
 
 today_bars = intraday[intraday.index.date == trade_date]
@@ -616,16 +639,17 @@ with main_col:
         st.metric("PDL — Low",   f"{pd_low:.2f}",   f"{curr_price - pd_low:+.2f}")
 
     with c3:
-        st.subheader("Overnight / Globex")
-        if globex_h and globex_l:
-            glo_mid   = round((globex_h + globex_l) / 2, 2)
-            glo_range = round(globex_h - globex_l, 2)
-            st.metric("Globex High",  f"{globex_h:.2f}", f"{curr_price - globex_h:+.2f}")
-            st.metric("Globex Mid",   f"{glo_mid:.2f}",  f"{curr_price - glo_mid:+.2f}")
-            st.metric("Globex Low",   f"{globex_l:.2f}", f"{curr_price - globex_l:+.2f}")
-            st.metric("Globex Range", f"{glo_range:.2f} pts")
+        st.subheader("Asia / London")
+        if asia_h and asia_l:
+            st.metric("Asia High",   f"{asia_h:.2f}", f"{curr_price - asia_h:+.2f}")
+            st.metric("Asia Low",    f"{asia_l:.2f}", f"{curr_price - asia_l:+.2f}")
         else:
-            st.info("No Globex data yet.\n(Pre-market or weekend)")
+            st.info("No Asia session data yet.")
+        if london_h and london_l:
+            st.metric("London High", f"{london_h:.2f}", f"{curr_price - london_h:+.2f}")
+            st.metric("London Low",  f"{london_l:.2f}", f"{curr_price - london_l:+.2f}")
+        else:
+            st.info("No London session data yet.")
 
     # TopStep Price Limit Strip
     effective_pct = PRICE_LIMIT_PCT - TOPSTEP_BUFFER
