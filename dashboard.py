@@ -555,51 +555,6 @@ with main_col:
                 unsafe_allow_html=True,
             )
 
-    # Chart
-    fig = go.Figure()
-    if not today_bars.empty:
-        fig.add_trace(go.Candlestick(
-            x=today_bars.index,
-            open=today_bars["Open"],
-            high=today_bars["High"],
-            low=today_bars["Low"],
-            close=today_bars["Close"],
-            name="NQ",
-            increasing_line_color="#00c853",
-            decreasing_line_color="#d50000",
-        ))
-    chart_levels = [
-        ("R4",  camarilla["R4"], "rgba(105,240,174,1)",    "solid",   2.5),
-        ("R3",  camarilla["R3"], "rgba(185,246,202,0.85)", "dashdot", 1.5),
-        ("PDH", pd_high,         "rgba(100,149,237,1)",    "dash",    1.8),
-        ("PDC", pd_close,        "rgba(180,180,180,0.65)", "dot",     1.2),
-        ("PDL", pd_low,          "rgba(100,149,237,1)",    "dash",    1.8),
-        ("S3",  camarilla["S3"], "rgba(255,171,145,0.85)", "dashdot", 1.5),
-        ("S4",  camarilla["S4"], "rgba(255,112,67,1)",     "solid",   2.5),
-    ]
-    if globex_h:
-        chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.85)", "dash", 1.3))
-        chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.85)", "dash", 1.3))
-    for label, val, color, dash, width in chart_levels:
-        fig.add_hline(
-            y=val, line_color=color, line_dash=dash, line_width=width,
-            annotation_text=f"  {label}  {val:.0f}",
-            annotation_font_color=color, annotation_font_size=12,
-            annotation_position="right",
-        )
-    fig.update_layout(
-        template="plotly_dark",
-        xaxis_rangeslider_visible=False,
-        height=680,
-        margin=dict(r=130, l=10, t=10, b=10),
-        xaxis_title="Time (ET)",
-        yaxis_title="Price",
-        legend=dict(orientation="h", y=1.01, x=0),
-        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
-        xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
     st.divider()
 
     # Levels Grid
@@ -684,6 +639,51 @@ with main_col:
         f"</div>",
         unsafe_allow_html=True,
     )
+
+    # Chart
+    fig = go.Figure()
+    if not today_bars.empty:
+        fig.add_trace(go.Candlestick(
+            x=today_bars.index,
+            open=today_bars["Open"],
+            high=today_bars["High"],
+            low=today_bars["Low"],
+            close=today_bars["Close"],
+            name="NQ",
+            increasing_line_color="#00c853",
+            decreasing_line_color="#d50000",
+        ))
+    chart_levels = [
+        ("R4",  camarilla["R4"], "rgba(105,240,174,1)",    "solid",   2.5),
+        ("R3",  camarilla["R3"], "rgba(185,246,202,0.85)", "dashdot", 1.5),
+        ("PDH", pd_high,         "rgba(100,149,237,1)",    "dash",    1.8),
+        ("PDC", pd_close,        "rgba(180,180,180,0.65)", "dot",     1.2),
+        ("PDL", pd_low,          "rgba(100,149,237,1)",    "dash",    1.8),
+        ("S3",  camarilla["S3"], "rgba(255,171,145,0.85)", "dashdot", 1.5),
+        ("S4",  camarilla["S4"], "rgba(255,112,67,1)",     "solid",   2.5),
+    ]
+    if globex_h:
+        chart_levels.append(("Glob H", globex_h, "rgba(180,100,255,0.85)", "dash", 1.3))
+        chart_levels.append(("Glob L", globex_l, "rgba(180,100,255,0.85)", "dash", 1.3))
+    for label, val, color, dash, width in chart_levels:
+        fig.add_hline(
+            y=val, line_color=color, line_dash=dash, line_width=width,
+            annotation_text=f"  {label}  {val:.0f}",
+            annotation_font_color=color, annotation_font_size=12,
+            annotation_position="right",
+        )
+    fig.update_layout(
+        template="plotly_dark",
+        xaxis_rangeslider_visible=False,
+        height=680,
+        margin=dict(r=130, l=10, t=10, b=10),
+        xaxis_title="Time (ET)",
+        yaxis_title="Price",
+        legend=dict(orientation="h", y=1.01, x=0),
+        yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+        xaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
     st.caption(
         "Data: Yahoo Finance via yfinance (15-min delayed during RTH).  "
